@@ -3,12 +3,17 @@
 	<head>
 		<title> . . : | Ludum-Dare-28 | : . .</title>
 		<link href="css/css.min.css" rel="stylesheet" type="text/css">
+		<script src="http://cdnjs.cloudflare.com/ajax/libs/gsap/latest/TweenMax.min.js"></script>
 		<script src="//ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
 		<script type="text/javascript" src="js/vendors/pixi.js"></script>
 		<script type="text/javascript" src="js/app.js"></script>
 	</head>
 	<body>
 		<div id="game-holder"></div>
+		<div id="edit-controls">
+			<div id="parse-button">PARSE</div>
+			<div id="parse-results"></div>
+		</div>
 	</body>
 	<script type="text/javascript">
 		document.body.onload = function(e){
