@@ -290,13 +290,28 @@ GameRenderer = (function() {
     tileId = tile.x + '_' + tile.y;
     if (!this.tiles[tileId]) {
       this.tiles[tileId] = new PIXI.Sprite(this.texManager.getTexture(tile.state));
-      this.tiles[tileId].position.x = tile.x * this.tileSize;
-      this.tiles[tileId].position.y = tile.y * this.tileSize;
+      this.tiles[tileId].pivot.x = this.tiles[tileId].pivot.y = 32;
+      this.tiles[tileId].position.x = (tile.x * this.tileSize) + 32;
+      this.tiles[tileId].position.y = (tile.y * this.tileSize) + 32;
+      this.tiles[tileId].scale.x = this.tiles[tileId].scale.y = this.tiles[tileId].alpha = 1;
       this.tileHolder.addChild(this.tiles[tileId]);
       this.tiles[tileId].interactive = true;
       this.tiles[tileId].mousedown = this.tileClick;
     } else if (this.texManager.getTexture(tile.state) !== this.tiles[tileId].texture) {
+      this.tiles[tileId].scale.x = this.tiles[tileId].scale.y = this.tiles[tileId].alpha = 1;
       this.tiles[tileId].setTexture(this.texManager.getTexture(tile.state));
+    } else if (tile.state === 'falling' && tile.falling && this.tiles[tileId].scale.x === 1) {
+      TweenMax.to(this.tiles[tileId].scale, 0.5, {
+        x: 0.2,
+        y: 0.2,
+        ease: Power2.easeOut
+      });
+      TweenMax.to(this.tiles[tileId], 0.5, {
+        alpha: 0,
+        ease: Power2.easeOut
+      });
+    } else if (tile.state === 'falling' && !tile.falling && this.tiles[tileId].scale.x !== 1) {
+      this.tiles[tileId].scale.x = this.tiles[tileId].scale.y = this.tiles[tileId].alpha = 1;
     }
     return this.tiles[tileId];
   };
@@ -346,12 +361,15 @@ GameGrid = (function() {
   function GameGrid(completeCallback) {
     this.completeCallback = completeCallback;
     this.getLevelData = __bind(this.getLevelData, this);
+    this.nextTileSafe = __bind(this.nextTileSafe, this);
     this.update = __bind(this.update, this);
     this.openExits = __bind(this.openExits, this);
     this.checkExit = __bind(this.checkExit, this);
     this.checkPickup = __bind(this.checkPickup, this);
     this.checkJump = __bind(this.checkJump, this);
     this.checkFloor = __bind(this.checkFloor, this);
+    this.checkDropTile = __bind(this.checkDropTile, this);
+    this.checkLeaving = __bind(this.checkLeaving, this);
     this.checkLanding = __bind(this.checkLanding, this);
     this.createGrid = __bind(this.createGrid, this);
     this.clearCurrentLevel = __bind(this.clearCurrentLevel, this);
@@ -410,8 +428,25 @@ GameGrid = (function() {
     return null;
   };
 
+  GameGrid.prototype.checkLeaving = function(x, y) {
+    if (window.app.editMode) {
+      return;
+    }
+    this.checkDropTile(x, y);
+    return null;
+  };
+
+  GameGrid.prototype.checkDropTile = function(x, y) {
+    if (this.tiles[x][y].state === 'falling') {
+      this.tiles[x][y].falling = true;
+    }
+    return null;
+  };
+
   GameGrid.prototype.checkFloor = function(x, y) {
     if (this.tiles[x][y].state === 'normal') {
+      this.player.fall();
+    } else if (this.tiles[x][y].state === 'falling' && this.tiles[x][y].falling) {
       this.player.fall();
     }
     return null;
@@ -487,7 +522,7 @@ GameGrid = (function() {
       if (moveDir.x !== 0 || moveDir.y !== 0) {
         newx = this.player.x + moveDir.x;
         newy = this.player.y + moveDir.y;
-        if (!this.currentLevel[newx + '_' + newy] && !window.app.editMode) {
+        if (!this.nextTileSafe(newx, newy) && !window.app.editMode) {
           moveDir.x = moveDir.y = 0;
         } else {
           this.player.move(moveDir.x, moveDir.y);
@@ -495,6 +530,18 @@ GameGrid = (function() {
       }
     }
     return null;
+  };
+
+  GameGrid.prototype.nextTileSafe = function(x, y) {
+    var id;
+    id = x + '_' + y;
+    if (!this.currentLevel[id]) {
+      return false;
+    } else if (this.currentLevel[id] === 'falling' && this.tiles[x][y].falling) {
+      return false;
+    } else {
+      return true;
+    }
   };
 
   GameGrid.prototype.getLevelData = function() {
@@ -587,6 +634,7 @@ GamePlayer = (function() {
         }
       });
     }
+    this.grid.checkLeaving(this.x, this.y);
     TweenMax.to(this, time, {
       x: x,
       y: y,
@@ -670,6 +718,8 @@ GameTextures = (function() {
 GameTile = (function() {
   GameTile.prototype.pickup = false;
 
+  GameTile.prototype.falling = false;
+
   function GameTile(x, y) {
     this.x = x;
     this.y = y;
@@ -693,62 +743,70 @@ Levels = (function() {
 
   Levels.LevelOne = {
     pickups: {
-      "3_2": "true",
-      "3_7": "true",
-      "6_5": "true"
+      "3_6": "true",
+      "5_4": "true",
+      "7_2": "true"
     },
     startPos: {
-      x: 5,
-      y: 0
+      x: 3,
+      y: 2
     },
-    "0_9": "exit_open",
-    "1_9": "metal",
-    "2_9": "metal",
-    "3_0": "metal",
-    "3_1": "metal",
-    "3_2": "metal",
-    "3_3": "metal",
-    "3_6": "metal",
+    "1_5": "falling",
+    "1_6": "falling",
+    "1_7": "falling",
+    "2_7": "falling",
+    "3_2": "corner",
+    "3_4": "metal",
+    "3_5": "jump",
+    "3_6": "falling",
     "3_7": "metal",
-    "3_8": "metal",
-    "3_9": "metal",
-    "4_0": "metal",
-    "4_3": "metal",
-    "4_6": "metal",
-    "5_0": "corner",
-    "5_3": "metal",
-    "5_6": "metal",
-    "6_3": "metal",
-    "6_4": "metal",
-    "6_5": "metal",
-    "6_6": "metal"
+    "4_2": "metal",
+    "4_4": "metal",
+    "4_5": "metal",
+    "4_7": "falling",
+    "5_2": "metal",
+    "5_4": "metal",
+    "5_7": "falling",
+    "6_2": "metal",
+    "6_7": "falling",
+    "7_2": "metal",
+    "7_4": "jump",
+    "7_7": "falling",
+    "8_2": "metal",
+    "8_3": "metal",
+    "8_4": "metal",
+    "8_7": "exit_open"
   };
 
   Levels.LevelTwo = {
     pickups: {
-      "5_3": "true",
-      "5_7": "true"
+      "4_3": "true",
+      "4_7": "true"
     },
     startPos: {
-      x: 2,
+      x: 1,
       y: 3
     },
-    "2_3": "corner",
-    "2_7": "exit_open",
+    "1_3": "corner",
+    "1_7": "exit_closed",
+    "2_3": "metal",
+    "2_7": "metal",
     "3_3": "metal",
+    "3_4": "metal",
     "3_7": "metal",
     "4_3": "metal",
-    "4_4": "metal",
+    "4_4": "jump",
     "4_7": "metal",
     "5_3": "metal",
-    "5_4": "jump",
     "5_7": "metal",
     "6_3": "metal",
+    "6_4": "jump",
+    "6_6": "metal",
     "6_7": "metal",
-    "7_3": "metal",
-    "7_4": "jump",
-    "7_6": "metal",
-    "7_7": "metal"
+    "7_6": "falling",
+    "8_4": "falling",
+    "8_5": "falling",
+    "8_6": "falling"
   };
 
   Levels.LevelThree = {
@@ -764,20 +822,20 @@ Levels = (function() {
     "1_3": "corner",
     "1_7": "exit_closed",
     "2_3": "metal",
-    "2_7": "metal",
+    "2_7": "falling",
     "3_3": "jump",
-    "3_7": "metal",
-    "4_4": "metal",
-    "4_5": "metal",
-    "4_6": "metal",
-    "4_7": "metal",
+    "3_7": "falling",
+    "4_4": "falling",
+    "4_5": "falling",
+    "4_6": "falling",
+    "4_7": "falling",
     "5_3": "jump",
     "6_2": "metal",
     "6_3": "metal",
     "6_4": "jump",
     "6_6": "metal",
     "6_7": "metal",
-    "7_3": "metal",
+    "7_3": "falling",
     "7_4": "metal",
     "7_6": "jump",
     "7_7": "metal"
@@ -787,7 +845,7 @@ Levels = (function() {
     pickups: {
       "1_3": "true",
       "4_2": "true",
-      "7_7": "true"
+      "8_7": "true"
     },
     startPos: {
       x: 4,
@@ -813,14 +871,131 @@ Levels = (function() {
     "5_6": "jump",
     "5_7": "metal",
     "6_5": "metal",
+    "6_6": "falling",
+    "6_7": "falling",
     "7_5": "metal",
-    "7_6": "metal",
+    "7_6": "falling",
     "7_7": "jump",
-    "8_6": "metal",
+    "8_6": "falling",
     "8_7": "metal"
   };
 
-  Levels.Levels = [Levels.LevelOne, Levels.LevelTwo, Levels.LevelThree, Levels.LevelFour];
+  Levels.LevelFive = {
+    pickups: {
+      "2_4": "true",
+      "4_4": "true",
+      "4_7": "true",
+      "7_4": "true"
+    },
+    startPos: {
+      x: 4,
+      y: 0
+    },
+    "2_3": "falling",
+    "2_4": "metal",
+    "2_5": "falling",
+    "3_3": "metal",
+    "3_5": "metal",
+    "4_0": "corner",
+    "4_1": "jump",
+    "4_3": "falling",
+    "4_4": "metal",
+    "4_5": "jump",
+    "4_7": "jump",
+    "4_9": "exit_open",
+    "5_3": "metal",
+    "5_5": "metal",
+    "6_3": "falling",
+    "6_4": "jump",
+    "6_5": "falling",
+    "7_3": "metal",
+    "7_4": "metal",
+    "7_5": "metal"
+  };
+
+  Levels.LevelSix = {
+    pickups: {
+      "3_3": "true",
+      "3_6": "true",
+      "6_3": "true",
+      "6_6": "true"
+    },
+    startPos: {
+      x: 4,
+      y: 1
+    },
+    "3_3": "falling",
+    "3_4": "jump",
+    "3_5": "metal",
+    "3_6": "falling",
+    "4_1": "corner",
+    "4_2": "jump",
+    "4_3": "falling",
+    "4_4": "metal",
+    "4_5": "falling",
+    "4_6": "jump",
+    "5_3": "jump",
+    "5_4": "falling",
+    "5_5": "falling",
+    "5_6": "metal",
+    "6_3": "falling",
+    "6_4": "metal",
+    "6_5": "jump",
+    "6_6": "falling",
+    "7_3": "metal",
+    "7_4": "jump",
+    "7_6": "exit_closed"
+  };
+
+  Levels.LevelSeven = {
+    pickups: {
+      "1_2": "true",
+      "1_5": "true",
+      "4_4": "true",
+      "5_2": "true",
+      "5_8": "true",
+      "8_2": "true",
+      "8_8": "true"
+    },
+    startPos: {
+      x: 1,
+      y: 8
+    },
+    "0_5": "metal",
+    "0_8": "falling",
+    "1_1": "metal",
+    "1_2": "falling",
+    "1_4": "jump",
+    "1_5": "metal",
+    "1_7": "jump",
+    "1_8": "corner",
+    "2_1": "metal",
+    "2_5": "jump",
+    "2_8": "jump",
+    "3_1": "jump",
+    "4_2": "metal",
+    "4_4": "falling",
+    "4_5": "falling",
+    "4_8": "jump",
+    "5_1": "metal",
+    "5_2": "falling",
+    "5_4": "falling",
+    "5_5": "jump",
+    "5_7": "falling",
+    "5_8": "falling",
+    "6_2": "jump",
+    "6_7": "jump",
+    "7_8": "jump",
+    "7_9": "metal",
+    "8_2": "falling",
+    "8_3": "metal",
+    "8_4": "metal",
+    "8_5": "jump",
+    "8_7": "exit_open",
+    "8_8": "falling"
+  };
+
+  Levels.Levels = [Levels.LevelTwo, Levels.LevelOne, Levels.LevelThree, Levels.LevelFour, Levels.LevelFive, Levels.LevelSix, Levels.LevelSeven];
 
   return Levels;
 
@@ -845,11 +1020,11 @@ App = (function() {
 
   App.prototype.editMode = false;
 
-  App.prototype.editStates = ['normal', 'metal', 'corner', 'exit_open', 'jump'];
+  App.prototype.editStates = ['normal', 'metal', 'corner', 'exit_open', 'jump', 'falling'];
 
   App.prototype.levels = null;
 
-  App.prototype.currentLevel = 3;
+  App.prototype.currentLevel = 0;
 
   App.prototype.gameScale = 1;
 
@@ -891,6 +1066,9 @@ App = (function() {
       }, {
         url: 'img/bg.jpg',
         id: 'bg'
+      }, {
+        url: 'img/falling-tile.jpg',
+        id: 'falling'
       }, {
         url: 'img/metal-tile.jpg',
         id: 'metal'
@@ -1028,7 +1206,6 @@ App = (function() {
     if (unicode === 40 || unicode === 83) {
       this.downPressed = true;
     }
-    this.debug.innerHTML = '_';
     return null;
   };
 

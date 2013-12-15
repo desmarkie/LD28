@@ -59,9 +59,20 @@ class GameGrid
 		if @exits then @checkExit x, y
 		null
 
+	checkLeaving: (x, y) =>
+		if window.app.editMode then return
+		@checkDropTile x, y
+		null
+
+	checkDropTile: (x, y) =>
+		if @tiles[x][y].state == 'falling'
+			@tiles[x][y].falling = true
+		null
 
 	checkFloor: (x, y) =>
 		if @tiles[x][y].state == 'normal'
+			@player.fall()
+		else if @tiles[x][y].state == 'falling' and @tiles[x][y].falling
 			@player.fall()
 		null
 
@@ -114,11 +125,20 @@ class GameGrid
 			if moveDir.x != 0 or moveDir.y != 0
 				newx = @player.x + moveDir.x
 				newy = @player.y + moveDir.y
-				if !@currentLevel[newx+'_'+newy] and !window.app.editMode
+				if !@nextTileSafe(newx, newy) and !window.app.editMode
 					moveDir.x = moveDir.y = 0
 				else
 					@player.move moveDir.x, moveDir.y
 		null
+
+	nextTileSafe: (x, y) =>
+		id = x+'_'+y
+		if !@currentLevel[id]
+			return false
+		else if @currentLevel[id] == 'falling' and @tiles[x][y].falling
+			return false
+		else
+			return true
 
 	getLevelData: =>
 		obj = {}

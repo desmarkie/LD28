@@ -166,13 +166,21 @@ class GameRenderer
 		# console.log 'tile exists ? '+ if @tiles[tileId] then 'y' else 'n'
 		if !@tiles[tileId]
 			@tiles[tileId] = new PIXI.Sprite @texManager.getTexture(tile.state)
-			@tiles[tileId].position.x = tile.x * @tileSize
-			@tiles[tileId].position.y = tile.y * @tileSize
+			@tiles[tileId].pivot.x = @tiles[tileId].pivot.y = 32
+			@tiles[tileId].position.x = (tile.x * @tileSize) + 32
+			@tiles[tileId].position.y = (tile.y * @tileSize) + 32
+			@tiles[tileId].scale.x = @tiles[tileId].scale.y = @tiles[tileId].alpha = 1
 			@tileHolder.addChild @tiles[tileId]
 			@tiles[tileId].interactive = true
 			@tiles[tileId].mousedown = @tileClick
 		else if @texManager.getTexture(tile.state) != @tiles[tileId].texture
+			@tiles[tileId].scale.x = @tiles[tileId].scale.y = @tiles[tileId].alpha = 1
 			@tiles[tileId].setTexture @texManager.getTexture(tile.state)
+		else if tile.state == 'falling' and tile.falling and @tiles[tileId].scale.x == 1
+			TweenMax.to @tiles[tileId].scale, 0.5, {x: 0.2, y:0.2, ease:Power2.easeOut}
+			TweenMax.to @tiles[tileId], 0.5, {alpha: 0, ease:Power2.easeOut}
+		else if tile.state == 'falling' and !tile.falling and @tiles[tileId].scale.x != 1
+			@tiles[tileId].scale.x = @tiles[tileId].scale.y = @tiles[tileId].alpha = 1
 
 		return @tiles[tileId]
 

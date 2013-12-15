@@ -15,10 +15,10 @@ class App
 
 	editMode: false
 
-	editStates: ['normal', 'metal', 'corner', 'exit_open', 'jump']
+	editStates: ['normal', 'metal', 'corner', 'exit_open', 'jump', 'falling']
 
 	levels: null
-	currentLevel: 3
+	currentLevel: 0
 
 	gameScale: 1
 
@@ -32,6 +32,7 @@ class App
 			{url:'img/tile-exit-closed.jpg', id:'exit_closed'},
 			{url:'img/tile-exit-open.jpg', id:'exit_open'},
 			{url:'img/bg.jpg', id:'bg'},
+			{url:'img/falling-tile.jpg', id:'falling'},
 			{url:'img/metal-tile.jpg', id:'metal'},
 			{url:'img/corner-tile.jpg', id:'corner'},
 			{url:'img/plain-tile.png', id:'normal'},
@@ -45,6 +46,7 @@ class App
 
 	init: =>
 		@levels = Levels.Levels
+		# @currentLevel = @levels.length-1
 
 		@grid = new GameGrid @levelComplete
 		@grid.createGrid @levels[@currentLevel]
@@ -137,10 +139,6 @@ class App
 		null
 
 	handleKeyPress: (e) =>
-		#37 or 65 is left
-		#39 or 68 is right
-		#38 or 87 is up
-		#40 or 83 is down
 		unicode = if e.keyCode then e.keyCode else e.charCode
 		if unicode is 37 or unicode is 65
 			@leftPressed = true
@@ -150,7 +148,6 @@ class App
 			@upPressed = true
 		if unicode is 40 or unicode is 83
 			@downPressed = true
-		@debug.innerHTML = '_'
 		null
 
 	handleKeyRelease: (e) =>
@@ -175,7 +172,6 @@ class App
 
 	toggleEditMode: =>
 		@editMode = !@editMode
-		# if @editMode then @renderer.showEditPanel() else @renderer.hideEditPanel()
 		null
 
 	parseCurrentLevel: =>

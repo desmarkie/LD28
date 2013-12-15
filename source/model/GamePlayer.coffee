@@ -32,6 +32,7 @@ class GamePlayer
 			TweenMax.to @, time*0.5, {scale:1.5, ease:Power2.easeOut, onComplete:=>
 				TweenMax.to @, time*0.5, {scale:1, ease:Power2.easeIn}
 			}
+		@grid.checkLeaving @x, @y
 		TweenMax.to @, time, {x:x, y:y, ease:Power2.easeOut, onComplete:=>
 			@grid.checkLanding x, y
 			@isMoving = false
