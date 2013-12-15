@@ -839,6 +839,10 @@ App = (function() {
 
   App.prototype.rightPressed = false;
 
+  App.prototype.topMargin = 0;
+
+  App.prototype.leftMargin = 0;
+
   App.prototype.editMode = false;
 
   App.prototype.editStates = ['normal', 'metal', 'corner', 'exit_open', 'jump'];
@@ -847,6 +851,8 @@ App = (function() {
 
   App.prototype.currentLevel = 3;
 
+  App.prototype.gameScale = 1;
+
   function App() {
     this.parseLevelData = __bind(this.parseLevelData, this);
     this.reset = __bind(this.reset, this);
@@ -854,8 +860,10 @@ App = (function() {
     this.toggleEditMode = __bind(this.toggleEditMode, this);
     this.handleKeyRelease = __bind(this.handleKeyRelease, this);
     this.handleKeyPress = __bind(this.handleKeyPress, this);
+    this.handleTouch = __bind(this.handleTouch, this);
     this.update = __bind(this.update, this);
     this.levelComplete = __bind(this.levelComplete, this);
+    this.resize = __bind(this.resize, this);
     this.init = __bind(this.init, this);
     var images;
     images = [
@@ -910,10 +918,40 @@ App = (function() {
     this.grid = new GameGrid(this.levelComplete);
     this.grid.createGrid(this.levels[this.currentLevel]);
     this.renderer = new GameRenderer(document.getElementById('game-holder'));
+    window.onresize = this.resize;
+    this.resize();
     this.renderer.showLevel();
-    window.onkeydown = this.handleKeyPress;
-    window.onkeyup = this.handleKeyRelease;
+    if (Modernizr.touch) {
+      this.renderer.renderer.view.addEventListener('touchstart', this.handleTouch, false);
+    } else {
+      window.onkeydown = this.handleKeyPress;
+      window.onkeyup = this.handleKeyRelease;
+    }
     requestAnimationFrame(this.update);
+    return null;
+  };
+
+  App.prototype.resize = function() {
+    var minScale;
+    if (window.innerWidth < 640 || window.innerHeight < 640) {
+      minScale = window.innerWidth / 640;
+      if (window.innerHeight / 640 < minScale) {
+        minScale = window.innerHeight / 640;
+      }
+      this.gameScale = minScale;
+    } else {
+      this.gameScale = 1;
+    }
+    $('canvas').css('width', 640 * this.gameScale + 'px');
+    $('canvas').css('height', 640 * this.gameScale + 'px');
+    $('#game-holder').css('width', 640 * this.gameScale + 'px');
+    $('#game-holder').css('height', 640 * this.gameScale + 'px');
+    this.leftMargin = (window.innerWidth - (640 * this.gameScale)) * 0.5;
+    this.topMargin = (window.innerHeight - (640 * this.gameScale)) * 0.5;
+    $('#game-holder').css('left', this.leftMargin + 'px');
+    $('#game-holder').css('top', this.topMargin + 'px');
+    $('#game-holder').css('margin-left', 0 + 'px');
+    $('#game-holder').css('margin-top', 0 + 'px');
     return null;
   };
 
@@ -946,6 +984,35 @@ App = (function() {
     return null;
   };
 
+  App.prototype.handleTouch = function(e) {
+    var xFromCenter, xneg, yFromCenter, yneg;
+    e.preventDefault();
+    xFromCenter = (320 * this.gameScale) - (e.touches[0].pageX - this.leftMargin);
+    xneg = false;
+    yneg = false;
+    if (xFromCenter < 0) {
+      xFromCenter *= -1;
+      xneg = true;
+    }
+    yFromCenter = (320 * this.gameScale) - (e.touches[0].pageY - this.topMargin);
+    if (yFromCenter < 0) {
+      yFromCenter *= -1;
+      yneg = true;
+    }
+    if (yFromCenter > xFromCenter) {
+      if (yneg) {
+        this.downPressed = true;
+      } else {
+        this.upPressed = true;
+      }
+    } else if (xneg) {
+      this.rightPressed = true;
+    } else {
+      this.leftPressed = true;
+    }
+    return null;
+  };
+
   App.prototype.handleKeyPress = function(e) {
     var unicode;
     unicode = e.keyCode ? e.keyCode : e.charCode;
@@ -961,6 +1028,7 @@ App = (function() {
     if (unicode === 40 || unicode === 83) {
       this.downPressed = true;
     }
+    this.debug.innerHTML = '_';
     return null;
   };
 

@@ -10,12 +10,17 @@ class App
 	leftPressed: false
 	rightPressed: false
 
+	topMargin: 0
+	leftMargin: 0
+
 	editMode: false
 
 	editStates: ['normal', 'metal', 'corner', 'exit_open', 'jump']
 
 	levels: null
 	currentLevel: 3
+
+	gameScale: 1
 
 	constructor: ->
 		images = [
@@ -45,12 +50,45 @@ class App
 		@grid.createGrid @levels[@currentLevel]
 
 		@renderer = new GameRenderer document.getElementById('game-holder')
+
+		window.onresize = @resize
+		@resize()
+
 		@renderer.showLevel()
 
-		window.onkeydown = @handleKeyPress
-		window.onkeyup = @handleKeyRelease
+		# @debug = document.createElement 'div'
+		# @debug.id = 'debug'
+		# document.body.appendChild @debug
+
+		if Modernizr.touch
+			@renderer.renderer.view.addEventListener 'touchstart', @handleTouch, false
+		else
+			window.onkeydown = @handleKeyPress
+			window.onkeyup = @handleKeyRelease
 
 		requestAnimationFrame @update
+		null
+
+	resize: =>
+		if window.innerWidth < 640 or window.innerHeight < 640
+			minScale = window.innerWidth/640
+			if window.innerHeight/640 < minScale
+				minScale = window.innerHeight/640
+			@gameScale = minScale
+		else
+			@gameScale = 1
+
+		$('canvas').css 'width', 640*@gameScale+'px'
+		$('canvas').css 'height', 640*@gameScale+'px'
+		$('#game-holder').css 'width', 640*@gameScale+'px'
+		$('#game-holder').css 'height', 640*@gameScale+'px'
+		@leftMargin = ((window.innerWidth - (640*@gameScale))*0.5)
+		@topMargin = ((window.innerHeight - (640*@gameScale))*0.5)
+		$('#game-holder').css 'left', @leftMargin+'px'
+		$('#game-holder').css 'top', @topMargin+'px'
+		$('#game-holder').css 'margin-left', 0+'px'
+		$('#game-holder').css 'margin-top', 0+'px'
+
 		null
 
 	levelComplete: =>
@@ -77,6 +115,27 @@ class App
 		@loader.load()
 		null
 
+	handleTouch: (e) =>
+		e.preventDefault()
+		# @debug.innerHTML = 'TTTOOOUUUUCCCHHH!!!'
+		xFromCenter = (320*@gameScale) - (e.touches[0].pageX-@leftMargin)
+		xneg = false
+		yneg = false
+		if xFromCenter < 0
+			xFromCenter *= -1
+			xneg = true
+		yFromCenter = (320*@gameScale) - (e.touches[0].pageY-@topMargin)
+		if yFromCenter < 0
+			yFromCenter *= -1
+			yneg = true
+		# @debug.innerHTML = (e.touches[0].pageX-@leftMargin)+'_'+(e.touches[0].pageY-@topMargin)
+		if yFromCenter > xFromCenter
+			if yneg then @downPressed = true else @upPressed = true
+		else if xneg then @rightPressed = true
+		else @leftPressed = true
+
+		null
+
 	handleKeyPress: (e) =>
 		#37 or 65 is left
 		#39 or 68 is right
@@ -91,6 +150,7 @@ class App
 			@upPressed = true
 		if unicode is 40 or unicode is 83
 			@downPressed = true
+		@debug.innerHTML = '_'
 		null
 
 	handleKeyRelease: (e) =>
