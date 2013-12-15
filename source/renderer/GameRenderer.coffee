@@ -60,6 +60,7 @@ class GameRenderer
 		@levelHolder.addChild @pickupHolder
 
 		@playerSprite = new PIXI.Sprite @texManager.getTexture('player')
+		@playerSprite.pivot.x = @playerSprite.pivot.y = 32
 		@levelHolder.addChild @playerSprite
 
 		@levelHolder.scale.x = @levelHolder.scale.y = 0.25
@@ -72,8 +73,19 @@ class GameRenderer
 
 	render: (@grid) =>
 		@drawTiles @grid.tiles, @grid.gridWidth, @grid.gridHeight
-		@playerSprite.position.x = (@grid.player.x * @tileSize) - 320
-		@playerSprite.position.y = (@grid.player.y * @tileSize) - 320
+		if @grid.player.x == @grid.currentLevel.startPos.x and @grid.player.y == @grid.currentLevel.startPos.y
+			@playerSprite.scale.x = @playerSprite.scale.y = @playerSprite.alpha = 1
+			@playerSprite.rotation = 0
+		@playerSprite.position.x = ((@grid.player.x * @tileSize) - 320) + 32
+		@playerSprite.position.y = ((@grid.player.y * @tileSize) - 320) + 32
+		if @grid.player.falling
+			@grid.player.falling = false
+			TweenMax.to @playerSprite.scale, 1, {x:0.2, y:0.2}
+			TweenMax.to @playerSprite, 1, {rotation:Math.PI, alpha:0, onComplete:=>
+				window.app.reset()
+			}
+		else
+			@playerSprite.scale.x = @playerSprite.scale.y = @grid.player.scale
 
 		@bg.position.x++
 		@bg.position.y++
@@ -158,22 +170,19 @@ class GameRenderer
 			@tiles[tileId].position.y = tile.y * @tileSize
 			@tileHolder.addChild @tiles[tileId]
 			@tiles[tileId].interactive = true
-			@tiles[tileId].mouseup = @tileClick
+			@tiles[tileId].mousedown = @tileClick
 		else if @texManager.getTexture(tile.state) != @tiles[tileId].texture
 			@tiles[tileId].setTexture @texManager.getTexture(tile.state)
 
 		return @tiles[tileId]
 
 	tileClick: (e) =>
+		if !window.app.editMode then return
 		xPos = Math.floor(e.target.position.x / 64)
 		yPos = Math.floor(e.target.position.y / 64)
-		console.log 'TILE CLICK : '+xPos+', '+yPos
 		if @editState != 'pickup'
 			curState = @grid.tiles[xPos][yPos].state
 			@grid.tiles[xPos][yPos].state = @editState
 		else
 			@grid.tiles[xPos][yPos].pickup = !@grid.tiles[xPos][yPos].pickup
-		# if curState == 'normal' then @grid.tiles[xPos][yPos].state = 'metal'
-		# else if curState == 'metal' then @grid.tiles[xPos][yPos].state = 'corner'
-		# else if curState == 'corner' then @grid.tiles[xPos][yPos].state = 'normal'
 		null

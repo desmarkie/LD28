@@ -12,7 +12,10 @@ class App
 
 	editMode: false
 
-	editStates: ['normal', 'metal', 'corner']
+	editStates: ['normal', 'metal', 'corner', 'exit_open', 'jump']
+
+	levels: null
+	currentLevel: 3
 
 	constructor: ->
 		images = [
@@ -20,11 +23,14 @@ class App
 			{url:'img/pickup_02.png', id:'pickup_02'},
 			{url:'img/pickup_03.png', id:'pickup_03'},
 			{url:'img/pickup_04.png', id:'pickup_04'},
-			{url:'img/pickup_05.png', id:'pickup_05'},
+			{url:'img/pickup_05.png', id:'pickup_05'}
+			{url:'img/tile-exit-closed.jpg', id:'exit_closed'},
+			{url:'img/tile-exit-open.jpg', id:'exit_open'},
 			{url:'img/bg.jpg', id:'bg'},
 			{url:'img/metal-tile.jpg', id:'metal'},
 			{url:'img/corner-tile.jpg', id:'corner'},
 			{url:'img/plain-tile.png', id:'normal'},
+			{url:'img/jump-tile.jpg', id:'jump'},
 			{url:'img/player.png', id:'player'}
 		]
 		@textures = new GameTextures(images)
@@ -33,7 +39,10 @@ class App
 		$('#parse-button').bind 'click', @parseCurrentLevel
 
 	init: =>
+		@levels = Levels.Levels
+
 		@grid = new GameGrid @levelComplete
+		@grid.createGrid @levels[@currentLevel]
 
 		@renderer = new GameRenderer document.getElementById('game-holder')
 		@renderer.showLevel()
@@ -46,7 +55,9 @@ class App
 
 	levelComplete: =>
 		@renderer.hideLevel =>
-			@grid.createGrid Levels.LevelOne
+			@currentLevel++
+			if @currentLevel == @levels.length then @currentLevel = 0
+			@grid.createGrid @levels[@currentLevel]
 			@renderer.showLevel()
 		null
 
@@ -99,9 +110,7 @@ class App
 		if unicode == 80
 			@renderer.editState = 'pickup'
 		if unicode == 82
-			@renderer.hideLevel =>
-				@grid.createGrid Levels.LevelOne
-				@renderer.showLevel()
+			@reset()
 		null
 
 	toggleEditMode: =>
@@ -114,6 +123,12 @@ class App
 		levelData = @grid.getLevelData()
 		console.log levelData
 		text = @parseLevelData levelData
+		null
+
+	reset: =>
+		@renderer.hideLevel =>
+			@grid.createGrid @levels[@currentLevel]
+			@renderer.showLevel()
 		null
 
 	parseLevelData: (data) =>

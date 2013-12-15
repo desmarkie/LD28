@@ -137,6 +137,7 @@ GameRenderer = (function() {
     this.pickupHolder.position.y = -320;
     this.levelHolder.addChild(this.pickupHolder);
     this.playerSprite = new PIXI.Sprite(this.texManager.getTexture('player'));
+    this.playerSprite.pivot.x = this.playerSprite.pivot.y = 32;
     this.levelHolder.addChild(this.playerSprite);
     this.levelHolder.scale.x = this.levelHolder.scale.y = 0.25;
     this.levelHolder.alpha = 0;
@@ -146,10 +147,31 @@ GameRenderer = (function() {
   }
 
   GameRenderer.prototype.render = function(grid) {
+    var _this = this;
     this.grid = grid;
     this.drawTiles(this.grid.tiles, this.grid.gridWidth, this.grid.gridHeight);
-    this.playerSprite.position.x = (this.grid.player.x * this.tileSize) - 320;
-    this.playerSprite.position.y = (this.grid.player.y * this.tileSize) - 320;
+    if (this.grid.player.x === this.grid.currentLevel.startPos.x && this.grid.player.y === this.grid.currentLevel.startPos.y) {
+      this.playerSprite.scale.x = this.playerSprite.scale.y = this.playerSprite.alpha = 1;
+      this.playerSprite.rotation = 0;
+    }
+    this.playerSprite.position.x = ((this.grid.player.x * this.tileSize) - 320) + 32;
+    this.playerSprite.position.y = ((this.grid.player.y * this.tileSize) - 320) + 32;
+    if (this.grid.player.falling) {
+      this.grid.player.falling = false;
+      TweenMax.to(this.playerSprite.scale, 1, {
+        x: 0.2,
+        y: 0.2
+      });
+      TweenMax.to(this.playerSprite, 1, {
+        rotation: Math.PI,
+        alpha: 0,
+        onComplete: function() {
+          return window.app.reset();
+        }
+      });
+    } else {
+      this.playerSprite.scale.x = this.playerSprite.scale.y = this.grid.player.scale;
+    }
     this.bg.position.x++;
     this.bg.position.y++;
     if (this.bg.position.x > 0) {
@@ -272,7 +294,7 @@ GameRenderer = (function() {
       this.tiles[tileId].position.y = tile.y * this.tileSize;
       this.tileHolder.addChild(this.tiles[tileId]);
       this.tiles[tileId].interactive = true;
-      this.tiles[tileId].mouseup = this.tileClick;
+      this.tiles[tileId].mousedown = this.tileClick;
     } else if (this.texManager.getTexture(tile.state) !== this.tiles[tileId].texture) {
       this.tiles[tileId].setTexture(this.texManager.getTexture(tile.state));
     }
@@ -281,9 +303,11 @@ GameRenderer = (function() {
 
   GameRenderer.prototype.tileClick = function(e) {
     var curState, xPos, yPos;
+    if (!window.app.editMode) {
+      return;
+    }
     xPos = Math.floor(e.target.position.x / 64);
     yPos = Math.floor(e.target.position.y / 64);
-    console.log('TILE CLICK : ' + xPos + ', ' + yPos);
     if (this.editState !== 'pickup') {
       curState = this.grid.tiles[xPos][yPos].state;
       this.grid.tiles[xPos][yPos].state = this.editState;
@@ -314,6 +338,11 @@ GameGrid = (function() {
 
   GameGrid.prototype.currentLevel = null;
 
+  GameGrid.prototype.exitPos = {
+    x: 0,
+    y: 0
+  };
+
   function GameGrid(completeCallback) {
     this.completeCallback = completeCallback;
     this.getLevelData = __bind(this.getLevelData, this);
@@ -321,10 +350,12 @@ GameGrid = (function() {
     this.openExits = __bind(this.openExits, this);
     this.checkExit = __bind(this.checkExit, this);
     this.checkPickup = __bind(this.checkPickup, this);
+    this.checkJump = __bind(this.checkJump, this);
+    this.checkFloor = __bind(this.checkFloor, this);
+    this.checkLanding = __bind(this.checkLanding, this);
     this.createGrid = __bind(this.createGrid, this);
     this.clearCurrentLevel = __bind(this.clearCurrentLevel, this);
     this.player = new GamePlayer(this, 0, 0);
-    this.createGrid(Levels.LevelOne);
   }
 
   GameGrid.prototype.clearCurrentLevel = function() {
@@ -349,6 +380,11 @@ GameGrid = (function() {
         this.tiles[i][j] = new GameTile(i, j);
         if (this.currentLevel[i + '_' + j]) {
           this.tiles[i][j].state = this.currentLevel[i + '_' + j];
+          if (this.tiles[i][j].state === 'exit_open' || this.tiles[i][j].state === 'exit_closed') {
+            this.tiles[i][j].state = 'exit_closed';
+            this.exitPos.x = i;
+            this.exitPos.y = j;
+          }
           if (this.currentLevel.pickups[i + '_' + j]) {
             this.tiles[i][j].pickup = true;
             this.pickups.push(i + '_' + j);
@@ -357,8 +393,34 @@ GameGrid = (function() {
       }
     }
     this.numPickups = this.pickups.length;
-    this.player.x = this.currentLevel.startPos.x;
-    this.player.y = this.currentLevel.startPos.y;
+    this.player.toStartPosition(this.currentLevel.startPos.x, this.currentLevel.startPos.y);
+    return null;
+  };
+
+  GameGrid.prototype.checkLanding = function(x, y) {
+    if (window.app.editMode) {
+      return;
+    }
+    this.checkFloor(x, y);
+    this.checkPickup(x, y);
+    this.checkJump(x, y);
+    if (this.exits) {
+      this.checkExit(x, y);
+    }
+    return null;
+  };
+
+  GameGrid.prototype.checkFloor = function(x, y) {
+    if (this.tiles[x][y].state === 'normal') {
+      this.player.fall();
+    }
+    return null;
+  };
+
+  GameGrid.prototype.checkJump = function(x, y) {
+    if (this.tiles[x][y].state === 'jump') {
+      this.player.jump();
+    }
     return null;
   };
 
@@ -383,7 +445,7 @@ GameGrid = (function() {
     if (this.complete) {
       return;
     }
-    if ((x === 0 && y === 0) || (x === this.gridWidth - 1 && y === 0) || (x === 0 && y === this.gridHeight - 1) || (x === this.gridWidth - 1 && y === this.gridHeight - 1)) {
+    if (x === this.exitPos.x && y === this.exitPos.y) {
       this.complete = true;
       this.completeCallback();
     }
@@ -392,6 +454,7 @@ GameGrid = (function() {
 
   GameGrid.prototype.openExits = function() {
     this.exits = true;
+    this.tiles[this.exitPos.x][this.exitPos.y].state = 'exit_open';
     return null;
   };
 
@@ -424,7 +487,7 @@ GameGrid = (function() {
       if (moveDir.x !== 0 || moveDir.y !== 0) {
         newx = this.player.x + moveDir.x;
         newy = this.player.y + moveDir.y;
-        if (!this.currentLevel[newx + '_' + newy]) {
+        if (!this.currentLevel[newx + '_' + newy] && !window.app.editMode) {
           moveDir.x = moveDir.y = 0;
         } else {
           this.player.move(moveDir.x, moveDir.y);
@@ -462,17 +525,30 @@ GameGrid = (function() {
 })();
 
 GamePlayer = (function() {
+  GamePlayer.prototype.lastMove = null;
+
+  GamePlayer.prototype.falling = false;
+
+  GamePlayer.prototype.scale = 1;
+
   function GamePlayer(grid, x, y) {
     this.grid = grid;
     this.x = x;
     this.y = y;
+    this.jump = __bind(this.jump, this);
+    this.fall = __bind(this.fall, this);
+    this.toStartPosition = __bind(this.toStartPosition, this);
+    this.doMove = __bind(this.doMove, this);
     this.move = __bind(this.move, this);
     this.isMoving = false;
   }
 
   GamePlayer.prototype.move = function(xmov, ymov) {
-    var newx, newy,
-      _this = this;
+    var newx, newy;
+    this.lastMove = {
+      x: xmov,
+      y: ymov
+    };
     this.isMoving = true;
     newx = this.x + xmov;
     newy = this.y + ymov;
@@ -487,22 +563,59 @@ GamePlayer = (function() {
       newy = this.grid.gridHeight - 1;
     }
     if (newx !== this.x || newy !== this.y) {
-      TweenMax.to(this, 0.3, {
-        x: newx,
-        y: newy,
-        ease: Power4.easeOut,
-        onComplete: function() {
-          _this.isMoving = false;
-          if (_this.grid.exits) {
-            return _this.grid.checkExit(_this.x, _this.y);
-          } else {
-            return _this.grid.checkPickup(_this.x, _this.y);
-          }
-        }
-      });
+      this.isMoving = true;
+      this.doMove(newx, newy, false);
     } else {
       this.isMoving = false;
     }
+    return null;
+  };
+
+  GamePlayer.prototype.doMove = function(x, y, isJump) {
+    var time,
+      _this = this;
+    time = isJump ? 1 : 0.15;
+    if (isJump) {
+      TweenMax.to(this, time * 0.5, {
+        scale: 1.5,
+        ease: Power2.easeOut,
+        onComplete: function() {
+          return TweenMax.to(_this, time * 0.5, {
+            scale: 1,
+            ease: Power2.easeIn
+          });
+        }
+      });
+    }
+    TweenMax.to(this, time, {
+      x: x,
+      y: y,
+      ease: Power2.easeOut,
+      onComplete: function() {
+        _this.grid.checkLanding(x, y);
+        return _this.isMoving = false;
+      }
+    });
+    return null;
+  };
+
+  GamePlayer.prototype.toStartPosition = function(x, y) {
+    this.x = x;
+    this.y = y;
+    return null;
+  };
+
+  GamePlayer.prototype.fall = function() {
+    this.falling = true;
+    return null;
+  };
+
+  GamePlayer.prototype.jump = function() {
+    var newx, newy;
+    this.isMoving = true;
+    newx = this.x + (this.lastMove.x * 2);
+    newy = this.y + (this.lastMove.y * 2);
+    this.doMove(newx, newy, true);
     return null;
   };
 
@@ -570,6 +683,14 @@ GameTile = (function() {
 Levels = (function() {
   function Levels() {}
 
+  Levels.EmptyLevel = {
+    pickups: {},
+    startPos: {
+      x: 0,
+      y: 0
+    }
+  };
+
   Levels.LevelOne = {
     pickups: {
       "3_2": "true",
@@ -580,7 +701,7 @@ Levels = (function() {
       x: 5,
       y: 0
     },
-    "0_9": "corner",
+    "0_9": "exit_open",
     "1_9": "metal",
     "2_9": "metal",
     "3_0": "metal",
@@ -603,6 +724,104 @@ Levels = (function() {
     "6_6": "metal"
   };
 
+  Levels.LevelTwo = {
+    pickups: {
+      "5_3": "true",
+      "5_7": "true"
+    },
+    startPos: {
+      x: 2,
+      y: 3
+    },
+    "2_3": "corner",
+    "2_7": "exit_open",
+    "3_3": "metal",
+    "3_7": "metal",
+    "4_3": "metal",
+    "4_4": "metal",
+    "4_7": "metal",
+    "5_3": "metal",
+    "5_4": "jump",
+    "5_7": "metal",
+    "6_3": "metal",
+    "6_7": "metal",
+    "7_3": "metal",
+    "7_4": "jump",
+    "7_6": "metal",
+    "7_7": "metal"
+  };
+
+  Levels.LevelThree = {
+    pickups: {
+      "4_4": "true",
+      "7_4": "true",
+      "7_7": "true"
+    },
+    startPos: {
+      x: 1,
+      y: 3
+    },
+    "1_3": "corner",
+    "1_7": "exit_closed",
+    "2_3": "metal",
+    "2_7": "metal",
+    "3_3": "jump",
+    "3_7": "metal",
+    "4_4": "metal",
+    "4_5": "metal",
+    "4_6": "metal",
+    "4_7": "metal",
+    "5_3": "jump",
+    "6_2": "metal",
+    "6_3": "metal",
+    "6_4": "jump",
+    "6_6": "metal",
+    "6_7": "metal",
+    "7_3": "metal",
+    "7_4": "metal",
+    "7_6": "jump",
+    "7_7": "metal"
+  };
+
+  Levels.LevelFour = {
+    pickups: {
+      "1_3": "true",
+      "4_2": "true",
+      "7_7": "true"
+    },
+    startPos: {
+      x: 4,
+      y: 8
+    },
+    "1_3": "metal",
+    "1_4": "metal",
+    "1_5": "metal",
+    "2_3": "metal",
+    "2_5": "jump",
+    "3_3": "metal",
+    "3_4": "metal",
+    "3_6": "jump",
+    "3_7": "metal",
+    "4_1": "exit_open",
+    "4_2": "metal",
+    "4_4": "jump",
+    "4_5": "jump",
+    "4_6": "jump",
+    "4_7": "metal",
+    "4_8": "corner",
+    "5_4": "metal",
+    "5_6": "jump",
+    "5_7": "metal",
+    "6_5": "metal",
+    "7_5": "metal",
+    "7_6": "metal",
+    "7_7": "jump",
+    "8_6": "metal",
+    "8_7": "metal"
+  };
+
+  Levels.Levels = [Levels.LevelOne, Levels.LevelTwo, Levels.LevelThree, Levels.LevelFour];
+
   return Levels;
 
 })();
@@ -622,10 +841,15 @@ App = (function() {
 
   App.prototype.editMode = false;
 
-  App.prototype.editStates = ['normal', 'metal', 'corner'];
+  App.prototype.editStates = ['normal', 'metal', 'corner', 'exit_open', 'jump'];
+
+  App.prototype.levels = null;
+
+  App.prototype.currentLevel = 3;
 
   function App() {
     this.parseLevelData = __bind(this.parseLevelData, this);
+    this.reset = __bind(this.reset, this);
     this.parseCurrentLevel = __bind(this.parseCurrentLevel, this);
     this.toggleEditMode = __bind(this.toggleEditMode, this);
     this.handleKeyRelease = __bind(this.handleKeyRelease, this);
@@ -651,6 +875,12 @@ App = (function() {
         url: 'img/pickup_05.png',
         id: 'pickup_05'
       }, {
+        url: 'img/tile-exit-closed.jpg',
+        id: 'exit_closed'
+      }, {
+        url: 'img/tile-exit-open.jpg',
+        id: 'exit_open'
+      }, {
         url: 'img/bg.jpg',
         id: 'bg'
       }, {
@@ -663,6 +893,9 @@ App = (function() {
         url: 'img/plain-tile.png',
         id: 'normal'
       }, {
+        url: 'img/jump-tile.jpg',
+        id: 'jump'
+      }, {
         url: 'img/player.png',
         id: 'player'
       }
@@ -673,7 +906,9 @@ App = (function() {
   }
 
   App.prototype.init = function() {
+    this.levels = Levels.Levels;
     this.grid = new GameGrid(this.levelComplete);
+    this.grid.createGrid(this.levels[this.currentLevel]);
     this.renderer = new GameRenderer(document.getElementById('game-holder'));
     this.renderer.showLevel();
     window.onkeydown = this.handleKeyPress;
@@ -685,7 +920,11 @@ App = (function() {
   App.prototype.levelComplete = function() {
     var _this = this;
     this.renderer.hideLevel(function() {
-      _this.grid.createGrid(Levels.LevelOne);
+      _this.currentLevel++;
+      if (_this.currentLevel === _this.levels.length) {
+        _this.currentLevel = 0;
+      }
+      _this.grid.createGrid(_this.levels[_this.currentLevel]);
       return _this.renderer.showLevel();
     });
     return null;
@@ -726,8 +965,7 @@ App = (function() {
   };
 
   App.prototype.handleKeyRelease = function(e) {
-    var unicode,
-      _this = this;
+    var unicode;
     unicode = e.keyCode ? e.keyCode : e.charCode;
     if (unicode === 37 || unicode === 65) {
       this.leftPressed = false;
@@ -751,10 +989,7 @@ App = (function() {
       this.renderer.editState = 'pickup';
     }
     if (unicode === 82) {
-      this.renderer.hideLevel(function() {
-        _this.grid.createGrid(Levels.LevelOne);
-        return _this.renderer.showLevel();
-      });
+      this.reset();
     }
     return null;
   };
@@ -770,6 +1005,15 @@ App = (function() {
     levelData = this.grid.getLevelData();
     console.log(levelData);
     text = this.parseLevelData(levelData);
+    return null;
+  };
+
+  App.prototype.reset = function() {
+    var _this = this;
+    this.renderer.hideLevel(function() {
+      _this.grid.createGrid(_this.levels[_this.currentLevel]);
+      return _this.renderer.showLevel();
+    });
     return null;
   };
 

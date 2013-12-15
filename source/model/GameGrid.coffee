@@ -15,9 +15,10 @@ class GameGrid
 
 	currentLevel: null
 
+	exitPos: {x:0, y:0}
+
 	constructor: (@completeCallback) ->
 		@player = new GamePlayer(@, 0, 0)
-		@createGrid Levels.LevelOne
 
 	clearCurrentLevel: =>
 		@tiles = null
@@ -39,12 +40,34 @@ class GameGrid
 				@tiles[i][j] = new GameTile(i, j)
 				if @currentLevel[i+'_'+j]
 					@tiles[i][j].state = @currentLevel[i+'_'+j]
+					if @tiles[i][j].state == 'exit_open' or @tiles[i][j].state == 'exit_closed'
+						@tiles[i][j].state = 'exit_closed'
+						@exitPos.x = i
+						@exitPos.y = j
 					if @currentLevel.pickups[i+'_'+j]
 						@tiles[i][j].pickup = true
 						@pickups.push i+'_'+j
 		@numPickups = @pickups.length
-		@player.x = @currentLevel.startPos.x
-		@player.y = @currentLevel.startPos.y
+		@player.toStartPosition @currentLevel.startPos.x, @currentLevel.startPos.y
+		null
+
+	checkLanding: (x, y) =>
+		if window.app.editMode then return
+		@checkFloor x, y
+		@checkPickup x, y
+		@checkJump x, y
+		if @exits then @checkExit x, y
+		null
+
+
+	checkFloor: (x, y) =>
+		if @tiles[x][y].state == 'normal'
+			@player.fall()
+		null
+
+	checkJump: (x, y) =>
+		if @tiles[x][y].state == 'jump'
+			@player.jump()
 		null
 
 	checkPickup: (x, y) =>
@@ -61,13 +84,14 @@ class GameGrid
 
 	checkExit: (x, y) =>
 		if @complete then return
-		if (x == 0 and y == 0) or (x == @gridWidth-1 and y == 0) or (x == 0 and y == @gridHeight-1) or (x == @gridWidth-1 and y == @gridHeight-1)
+		if x == @exitPos.x and y == @exitPos.y
 			@complete = true
 			@completeCallback()
 		null
 
 	openExits: =>
 		@exits = true
+		@tiles[@exitPos.x][@exitPos.y].state = 'exit_open'
 		null
 
 	update: =>
@@ -90,7 +114,7 @@ class GameGrid
 			if moveDir.x != 0 or moveDir.y != 0
 				newx = @player.x + moveDir.x
 				newy = @player.y + moveDir.y
-				if !@currentLevel[newx+'_'+newy]
+				if !@currentLevel[newx+'_'+newy] and !window.app.editMode
 					moveDir.x = moveDir.y = 0
 				else
 					@player.move moveDir.x, moveDir.y
