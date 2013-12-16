@@ -136,7 +136,8 @@ GameRenderer = (function() {
     this.pickupHolder.position.x = -320;
     this.pickupHolder.position.y = -320;
     this.levelHolder.addChild(this.pickupHolder);
-    this.playerSprite = new PIXI.Sprite(this.texManager.getTexture('player'));
+    this.playerSprite = new PIXI.MovieClip([this.texManager.getTexture('player-up'), this.texManager.getTexture('player-down'), this.texManager.getTexture('player-left'), this.texManager.getTexture('player-right')]);
+    this.playerSprite.gotoAndStop(0);
     this.playerSprite.pivot.x = this.playerSprite.pivot.y = 32;
     this.levelHolder.addChild(this.playerSprite);
     this.levelHolder.scale.x = this.levelHolder.scale.y = 0.25;
@@ -147,7 +148,8 @@ GameRenderer = (function() {
   }
 
   GameRenderer.prototype.render = function(grid) {
-    var _this = this;
+    var dir,
+      _this = this;
     this.grid = grid;
     this.drawTiles(this.grid.tiles, this.grid.gridWidth, this.grid.gridHeight);
     if (this.grid.player.x === this.grid.currentLevel.startPos.x && this.grid.player.y === this.grid.currentLevel.startPos.y) {
@@ -171,6 +173,19 @@ GameRenderer = (function() {
       });
     } else {
       this.playerSprite.scale.x = this.playerSprite.scale.y = this.grid.player.scale;
+    }
+    if (this.grid.player.isMoving) {
+      dir = this.grid.player.lastMove;
+      console.log('moving ' + dir);
+      if (dir.y < 0) {
+        this.playerSprite.gotoAndStop(0);
+      } else if (dir.y > 0) {
+        this.playerSprite.gotoAndStop(1);
+      } else if (dir.x < 0) {
+        this.playerSprite.gotoAndStop(2);
+      } else if (dir.x > 0) {
+        this.playerSprite.gotoAndStop(3);
+      }
     }
     this.bg.position.x++;
     this.bg.position.y++;
@@ -347,6 +362,8 @@ GameGrid = (function() {
 
   GameGrid.prototype.pickups = null;
 
+  GameGrid.prototype.tilesToDrop = 0;
+
   GameGrid.prototype.exits = false;
 
   GameGrid.prototype.complete = false;
@@ -392,12 +409,16 @@ GameGrid = (function() {
     this.currentLevel = level;
     this.tiles = [];
     this.pickups = [];
+    this.tilesToDrop = 0;
     for (i = _i = 0, _ref = this.gridWidth - 1; _i <= _ref; i = _i += 1) {
       this.tiles[i] = [];
       for (j = _j = 0, _ref1 = this.gridHeight - 1; _j <= _ref1; j = _j += 1) {
         this.tiles[i][j] = new GameTile(i, j);
         if (this.currentLevel[i + '_' + j]) {
           this.tiles[i][j].state = this.currentLevel[i + '_' + j];
+          if (this.tiles[i][j].state === 'falling') {
+            this.tilesToDrop++;
+          }
           if (this.tiles[i][j].state === 'exit_open' || this.tiles[i][j].state === 'exit_closed') {
             this.tiles[i][j].state = 'exit_closed';
             this.exitPos.x = i;
@@ -439,6 +460,7 @@ GameGrid = (function() {
   GameGrid.prototype.checkDropTile = function(x, y) {
     if (this.tiles[x][y].state === 'falling') {
       this.tiles[x][y].falling = true;
+      this.tilesToDrop--;
     }
     return null;
   };
@@ -596,6 +618,7 @@ GamePlayer = (function() {
       x: xmov,
       y: ymov
     };
+    console.log('MOVING ' + this.lastMove);
     this.isMoving = true;
     newx = this.x + xmov;
     newy = this.y + ymov;
@@ -949,6 +972,7 @@ Levels = (function() {
 
   Levels.LevelSeven = {
     pickups: {
+      "0_8": "true",
       "1_2": "true",
       "1_5": "true",
       "4_4": "true",
@@ -995,7 +1019,789 @@ Levels = (function() {
     "8_8": "falling"
   };
 
-  Levels.Levels = [Levels.LevelTwo, Levels.LevelOne, Levels.LevelThree, Levels.LevelFour, Levels.LevelFive, Levels.LevelSix, Levels.LevelSeven];
+  Levels.LevelEight = {
+    pickups: {
+      "1_1": "true",
+      "3_3": "true",
+      "3_6": "true",
+      "6_3": "true",
+      "6_6": "true",
+      "8_8": "true"
+    },
+    startPos: {
+      x: 6,
+      y: 1
+    },
+    "1_1": "metal",
+    "1_2": "metal",
+    "1_3": "metal",
+    "1_4": "metal",
+    "1_5": "metal",
+    "1_6": "metal",
+    "1_7": "falling",
+    "1_8": "exit_open",
+    "2_1": "falling",
+    "2_6": "falling",
+    "2_8": "falling",
+    "3_1": "metal",
+    "3_2": "falling",
+    "3_3": "metal",
+    "3_4": "falling",
+    "3_5": "metal",
+    "3_6": "metal",
+    "3_8": "metal",
+    "4_1": "metal",
+    "4_3": "metal",
+    "4_6": "falling",
+    "4_8": "metal",
+    "5_1": "metal",
+    "5_3": "falling",
+    "5_6": "metal",
+    "5_8": "metal",
+    "6_1": "corner",
+    "6_3": "metal",
+    "6_4": "metal",
+    "6_5": "falling",
+    "6_6": "metal",
+    "6_7": "falling",
+    "6_8": "metal",
+    "7_1": "metal",
+    "7_3": "falling",
+    "7_8": "falling",
+    "8_1": "falling",
+    "8_2": "metal",
+    "8_3": "metal",
+    "8_4": "metal",
+    "8_5": "metal",
+    "8_6": "metal",
+    "8_7": "metal",
+    "8_8": "metal"
+  };
+
+  Levels.LevelNine = {
+    pickups: {
+      "0_1": "true",
+      "0_8": "true",
+      "3_3": "true",
+      "6_5": "true",
+      "9_7": "true"
+    },
+    startPos: {
+      x: 2,
+      y: 1
+    },
+    "0_0": "metal",
+    "0_1": "metal",
+    "0_2": "metal",
+    "0_7": "metal",
+    "0_8": "falling",
+    "0_9": "metal",
+    "1_0": "falling",
+    "1_2": "falling",
+    "1_3": "metal",
+    "1_4": "metal",
+    "1_5": "metal",
+    "1_6": "metal",
+    "1_7": "metal",
+    "1_9": "metal",
+    "2_0": "metal",
+    "2_1": "corner",
+    "2_2": "metal",
+    "2_7": "metal",
+    "2_8": "falling",
+    "2_9": "metal",
+    "3_3": "metal",
+    "3_4": "metal",
+    "3_5": "metal",
+    "3_6": "metal",
+    "3_8": "metal",
+    "4_3": "metal",
+    "4_5": "metal",
+    "4_6": "falling",
+    "4_7": "falling",
+    "4_8": "metal",
+    "5_3": "falling",
+    "5_4": "metal",
+    "5_6": "metal",
+    "5_8": "falling",
+    "6_0": "metal",
+    "6_1": "falling",
+    "6_2": "metal",
+    "6_3": "metal",
+    "6_4": "metal",
+    "6_5": "metal",
+    "6_6": "metal",
+    "6_8": "falling",
+    "7_0": "jump",
+    "7_6": "falling",
+    "7_7": "falling",
+    "7_8": "metal",
+    "7_9": "metal",
+    "8_9": "metal",
+    "9_0": "exit_open",
+    "9_1": "metal",
+    "9_3": "jump",
+    "9_5": "jump",
+    "9_7": "jump",
+    "9_8": "falling",
+    "9_9": "metal"
+  };
+
+  Levels.LevelTen = {
+    pickups: {
+      "2_7": "true",
+      "3_3": "true",
+      "6_6": "true",
+      "7_2": "true"
+    },
+    startPos: {
+      x: 1,
+      y: 1
+    },
+    "1_1": "corner",
+    "1_2": "falling",
+    "1_3": "metal",
+    "1_4": "metal",
+    "1_5": "metal",
+    "1_6": "metal",
+    "2_1": "falling",
+    "2_2": "falling",
+    "2_6": "falling",
+    "2_7": "falling",
+    "3_1": "metal",
+    "3_3": "metal",
+    "3_4": "metal",
+    "3_5": "metal",
+    "3_6": "falling",
+    "3_7": "falling",
+    "3_8": "metal",
+    "4_1": "metal",
+    "4_3": "metal",
+    "4_6": "metal",
+    "4_8": "metal",
+    "5_1": "metal",
+    "5_3": "falling",
+    "5_6": "metal",
+    "5_8": "metal",
+    "6_1": "metal",
+    "6_2": "metal",
+    "6_3": "metal",
+    "6_4": "falling",
+    "6_5": "metal",
+    "6_6": "metal",
+    "6_7": "falling",
+    "6_8": "metal",
+    "7_2": "falling",
+    "7_3": "metal",
+    "7_7": "exit_open",
+    "7_8": "falling",
+    "8_3": "metal",
+    "8_4": "metal",
+    "8_5": "metal",
+    "8_6": "metal",
+    "8_7": "falling"
+  };
+
+  Levels.LevelEleven = {
+    pickups: {
+      "1_1": "true",
+      "2_6": "true",
+      "4_2": "true",
+      "7_5": "true",
+      "8_2": "true",
+      "8_8": "true"
+    },
+    startPos: {
+      x: 2,
+      y: 7
+    },
+    "1_1": "falling",
+    "1_2": "metal",
+    "2_0": "metal",
+    "2_2": "jump",
+    "2_3": "metal",
+    "2_5": "jump",
+    "2_6": "metal",
+    "2_7": "corner",
+    "3_0": "metal",
+    "3_1": "jump",
+    "3_7": "metal",
+    "4_1": "metal",
+    "4_2": "metal",
+    "4_3": "jump",
+    "4_4": "metal",
+    "4_7": "jump",
+    "5_1": "jump",
+    "5_3": "metal",
+    "5_4": "falling",
+    "5_7": "jump",
+    "6_7": "jump",
+    "7_1": "jump",
+    "7_2": "metal",
+    "7_4": "jump",
+    "7_5": "metal",
+    "7_7": "jump",
+    "7_8": "metal",
+    "8_1": "metal",
+    "8_2": "metal",
+    "8_4": "metal",
+    "8_5": "metal",
+    "8_7": "metal",
+    "8_8": "metal",
+    "9_1": "exit_open"
+  };
+
+  Levels.LevelTwelve = {
+    pickups: {
+      "0_0": "true",
+      "0_9": "true",
+      "2_2": "true",
+      "6_2": "true",
+      "9_0": "true",
+      "9_9": "true"
+    },
+    startPos: {
+      x: 4,
+      y: 0
+    },
+    "0_0": "metal",
+    "0_1": "falling",
+    "0_2": "falling",
+    "0_3": "falling",
+    "0_4": "falling",
+    "0_5": "falling",
+    "0_6": "falling",
+    "0_7": "falling",
+    "0_8": "falling",
+    "0_9": "metal",
+    "1_0": "metal",
+    "1_9": "metal",
+    "2_0": "metal",
+    "2_2": "metal",
+    "2_3": "metal",
+    "2_5": "jump",
+    "2_6": "metal",
+    "2_8": "jump",
+    "2_9": "falling",
+    "3_0": "metal",
+    "3_2": "jump",
+    "3_3": "metal",
+    "3_6": "metal",
+    "3_7": "metal",
+    "3_9": "metal",
+    "4_0": "corner",
+    "4_7": "falling",
+    "4_9": "metal",
+    "5_0": "exit_open",
+    "5_7": "falling",
+    "5_9": "metal",
+    "6_0": "metal",
+    "6_2": "metal",
+    "6_3": "metal",
+    "6_6": "metal",
+    "6_7": "metal",
+    "6_9": "metal",
+    "7_0": "metal",
+    "7_2": "jump",
+    "7_3": "metal",
+    "7_5": "jump",
+    "7_6": "metal",
+    "7_8": "jump",
+    "7_9": "falling",
+    "8_0": "metal",
+    "8_9": "metal",
+    "9_0": "metal",
+    "9_1": "falling",
+    "9_2": "falling",
+    "9_3": "falling",
+    "9_4": "falling",
+    "9_5": "falling",
+    "9_6": "falling",
+    "9_7": "falling",
+    "9_8": "falling",
+    "9_9": "metal"
+  };
+
+  Levels.LevelThirteen = {
+    pickups: {
+      "3_3": "true",
+      "3_6": "true",
+      "6_3": "true",
+      "6_6": "true"
+    },
+    startPos: {
+      x: 0,
+      y: 4
+    },
+    "0_3": "metal",
+    "0_4": "corner",
+    "0_5": "metal",
+    "0_6": "metal",
+    "1_3": "falling",
+    "1_6": "falling",
+    "2_3": "falling",
+    "2_6": "falling",
+    "3_3": "metal",
+    "3_4": "falling",
+    "3_5": "falling",
+    "3_6": "metal",
+    "4_3": "falling",
+    "4_6": "falling",
+    "5_3": "falling",
+    "5_6": "falling",
+    "6_3": "metal",
+    "6_4": "falling",
+    "6_5": "falling",
+    "6_6": "metal",
+    "7_3": "jump",
+    "7_6": "jump",
+    "9_3": "metal",
+    "9_4": "falling",
+    "9_5": "exit_open",
+    "9_6": "metal"
+  };
+
+  Levels.LevelFourteen = {
+    pickups: {
+      "0_3": "true",
+      "0_6": "true",
+      "1_1": "true",
+      "3_0": "true",
+      "7_8": "true",
+      "8_0": "true",
+      "8_7": "true"
+    },
+    startPos: {
+      x: 3,
+      y: 3
+    },
+    "0_3": "metal",
+    "0_4": "metal",
+    "0_6": "falling",
+    "0_7": "metal",
+    "0_8": "metal",
+    "1_1": "metal",
+    "1_2": "metal",
+    "1_3": "metal",
+    "1_4": "jump",
+    "1_6": "jump",
+    "1_7": "metal",
+    "1_8": "metal",
+    "2_1": "metal",
+    "2_8": "falling",
+    "3_0": "metal",
+    "3_1": "metal",
+    "3_3": "corner",
+    "3_4": "jump",
+    "3_6": "jump",
+    "3_8": "falling",
+    "4_0": "metal",
+    "4_1": "jump",
+    "4_3": "jump",
+    "4_5": "metal",
+    "4_7": "metal",
+    "4_8": "jump",
+    "5_4": "metal",
+    "5_5": "falling",
+    "5_6": "metal",
+    "6_0": "metal",
+    "6_1": "jump",
+    "6_3": "jump",
+    "6_5": "metal",
+    "6_6": "exit_closed",
+    "6_8": "jump",
+    "7_0": "metal",
+    "7_1": "metal",
+    "7_4": "metal",
+    "7_8": "falling",
+    "7_9": "falling",
+    "8_0": "metal",
+    "8_1": "metal",
+    "8_2": "metal",
+    "8_3": "falling",
+    "8_4": "jump",
+    "8_6": "jump",
+    "8_7": "falling",
+    "8_8": "metal",
+    "8_9": "falling",
+    "9_7": "falling",
+    "9_8": "falling",
+    "9_9": "falling"
+  };
+
+  Levels.LevelFifteen = {
+    pickups: {
+      "0_0": "true",
+      "0_9": "true",
+      "2_4": "true",
+      "9_0": "true",
+      "9_9": "true"
+    },
+    startPos: {
+      x: 3,
+      y: 4
+    },
+    "0_0": "metal",
+    "0_1": "metal",
+    "0_4": "falling",
+    "0_5": "metal",
+    "0_6": "jump",
+    "0_8": "metal",
+    "0_9": "metal",
+    "1_0": "metal",
+    "1_1": "metal",
+    "1_2": "metal",
+    "1_7": "metal",
+    "1_8": "metal",
+    "1_9": "metal",
+    "2_1": "metal",
+    "2_2": "jump",
+    "2_4": "falling",
+    "2_5": "jump",
+    "2_7": "jump",
+    "2_8": "metal",
+    "3_0": "jump",
+    "3_4": "corner",
+    "3_5": "metal",
+    "3_6": "falling",
+    "4_0": "metal",
+    "4_2": "jump",
+    "4_3": "metal",
+    "4_6": "metal",
+    "4_7": "metal",
+    "4_9": "falling",
+    "5_0": "falling",
+    "5_2": "metal",
+    "5_3": "metal",
+    "5_6": "metal",
+    "5_7": "jump",
+    "5_9": "metal",
+    "6_3": "falling",
+    "6_4": "metal",
+    "6_5": "exit_open",
+    "6_9": "jump",
+    "7_1": "metal",
+    "7_2": "jump",
+    "7_4": "jump",
+    "7_5": "metal",
+    "7_7": "jump",
+    "7_8": "metal",
+    "8_0": "metal",
+    "8_1": "metal",
+    "8_2": "metal",
+    "8_7": "metal",
+    "8_8": "metal",
+    "8_9": "metal",
+    "9_0": "metal",
+    "9_1": "metal",
+    "9_3": "jump",
+    "9_4": "metal",
+    "9_5": "falling",
+    "9_8": "metal",
+    "9_9": "metal"
+  };
+
+  Levels.LevelSixteen = {
+    pickups: {
+      "2_2": "true",
+      "2_7": "true",
+      "7_2": "true",
+      "7_7": "true"
+    },
+    startPos: {
+      x: 4,
+      y: 9
+    },
+    "1_4": "metal",
+    "1_5": "metal",
+    "2_2": "metal",
+    "2_3": "metal",
+    "2_4": "falling",
+    "2_5": "falling",
+    "2_6": "jump",
+    "2_7": "metal",
+    "3_2": "jump",
+    "3_4": "metal",
+    "3_5": "jump",
+    "3_7": "metal",
+    "4_1": "metal",
+    "4_2": "falling",
+    "4_3": "metal",
+    "4_4": "metal",
+    "4_5": "metal",
+    "4_6": "metal",
+    "4_7": "falling",
+    "4_8": "jump",
+    "4_9": "corner",
+    "5_1": "exit_open",
+    "5_2": "falling",
+    "5_3": "jump",
+    "5_4": "metal",
+    "5_5": "metal",
+    "5_6": "jump",
+    "5_7": "falling",
+    "5_8": "metal",
+    "6_2": "metal",
+    "6_4": "metal",
+    "6_5": "jump",
+    "6_7": "metal",
+    "7_2": "metal",
+    "7_3": "jump",
+    "7_4": "falling",
+    "7_5": "falling",
+    "7_6": "metal",
+    "7_7": "metal",
+    "8_4": "metal",
+    "8_5": "metal"
+  };
+
+  Levels.LevelSeventeen = {
+    pickups: {
+      "1_1": "true",
+      "1_8": "true",
+      "8_1": "true",
+      "8_8": "true"
+    },
+    startPos: {
+      x: 5,
+      y: 5
+    },
+    "1_1": "metal",
+    "1_2": "metal",
+    "1_3": "metal",
+    "1_5": "metal",
+    "1_6": "jump",
+    "1_7": "metal",
+    "1_8": "metal",
+    "2_1": "metal",
+    "2_3": "falling",
+    "2_8": "metal",
+    "3_1": "jump",
+    "3_3": "metal",
+    "3_5": "jump",
+    "3_6": "metal",
+    "3_7": "falling",
+    "3_8": "metal",
+    "4_3": "metal",
+    "4_4": "exit_open",
+    "4_5": "metal",
+    "5_1": "falling",
+    "5_4": "metal",
+    "5_5": "corner",
+    "5_6": "metal",
+    "6_1": "metal",
+    "6_2": "falling",
+    "6_3": "metal",
+    "6_4": "metal",
+    "6_6": "metal",
+    "6_8": "jump",
+    "7_1": "metal",
+    "7_6": "falling",
+    "7_8": "metal",
+    "8_1": "metal",
+    "8_2": "metal",
+    "8_3": "jump",
+    "8_5": "metal",
+    "8_6": "metal",
+    "8_7": "metal",
+    "8_8": "metal"
+  };
+
+  Levels.LevelEighteen = {
+    pickups: {
+      "1_1": "true",
+      "1_8": "true",
+      "8_1": "true",
+      "8_8": "true"
+    },
+    startPos: {
+      x: 5,
+      y: 4
+    },
+    "1_1": "metal",
+    "1_2": "metal",
+    "1_3": "jump",
+    "1_5": "falling",
+    "1_6": "metal",
+    "1_7": "metal",
+    "1_8": "metal",
+    "2_1": "metal",
+    "2_2": "metal",
+    "2_6": "metal",
+    "2_8": "metal",
+    "3_1": "falling",
+    "3_2": "metal",
+    "3_3": "metal",
+    "3_6": "jump",
+    "3_8": "metal",
+    "4_3": "metal",
+    "4_4": "metal",
+    "4_8": "metal",
+    "5_1": "jump",
+    "5_4": "corner",
+    "5_5": "metal",
+    "5_6": "metal",
+    "5_7": "falling",
+    "5_8": "falling",
+    "6_1": "metal",
+    "6_3": "metal",
+    "6_6": "exit_open",
+    "6_8": "jump",
+    "7_1": "metal",
+    "7_3": "metal",
+    "7_8": "metal",
+    "8_1": "metal",
+    "8_2": "metal",
+    "8_3": "metal",
+    "8_4": "falling",
+    "8_6": "jump",
+    "8_7": "metal",
+    "8_8": "metal"
+  };
+
+  Levels.LevelNineteen = {
+    pickups: {
+      "1_1": "true",
+      "1_8": "true",
+      "8_1": "true",
+      "8_8": "true"
+    },
+    startPos: {
+      x: 0,
+      y: 0
+    },
+    "0_0": "corner",
+    "0_1": "falling",
+    "0_7": "metal",
+    "0_8": "metal",
+    "1_0": "falling",
+    "1_1": "metal",
+    "1_2": "metal",
+    "1_3": "metal",
+    "1_4": "metal",
+    "1_5": "metal",
+    "1_6": "jump",
+    "1_7": "jump",
+    "1_8": "metal",
+    "2_1": "metal",
+    "3_1": "metal",
+    "3_3": "jump",
+    "3_4": "falling",
+    "3_5": "metal",
+    "3_7": "falling",
+    "3_8": "metal",
+    "4_1": "metal",
+    "4_3": "falling",
+    "4_4": "exit_open",
+    "4_5": "falling",
+    "4_6": "falling",
+    "4_7": "falling",
+    "5_1": "metal",
+    "5_3": "metal",
+    "5_4": "falling",
+    "5_5": "jump",
+    "5_7": "jump",
+    "5_8": "metal",
+    "6_1": "jump",
+    "6_7": "metal",
+    "6_8": "falling",
+    "7_0": "metal",
+    "7_1": "jump",
+    "7_3": "falling",
+    "7_4": "jump",
+    "7_5": "metal",
+    "7_6": "metal",
+    "7_7": "metal",
+    "7_8": "falling",
+    "8_0": "metal",
+    "8_1": "metal",
+    "8_3": "metal",
+    "8_4": "metal",
+    "8_7": "falling",
+    "8_8": "metal"
+  };
+
+  Levels.LevelTwenty = {
+    pickups: {
+      "1_0": "true",
+      "1_8": "true",
+      "3_3": "true",
+      "3_6": "true",
+      "6_3": "true",
+      "6_6": "true",
+      "9_0": "true",
+      "9_8": "true"
+    },
+    startPos: {
+      x: 0,
+      y: 0
+    },
+    "0_0": "corner",
+    "1_0": "falling",
+    "1_1": "falling",
+    "1_2": "falling",
+    "1_3": "falling",
+    "1_4": "falling",
+    "1_5": "falling",
+    "1_6": "falling",
+    "1_7": "falling",
+    "1_8": "falling",
+    "2_0": "falling",
+    "2_1": "falling",
+    "2_8": "falling",
+    "3_0": "falling",
+    "3_1": "falling",
+    "3_3": "falling",
+    "3_4": "falling",
+    "3_5": "falling",
+    "3_6": "falling",
+    "3_8": "falling",
+    "4_0": "falling",
+    "4_1": "falling",
+    "4_3": "falling",
+    "4_6": "falling",
+    "4_8": "falling",
+    "5_0": "falling",
+    "5_1": "falling",
+    "5_3": "falling",
+    "5_6": "falling",
+    "5_8": "falling",
+    "6_0": "falling",
+    "6_1": "falling",
+    "6_3": "falling",
+    "6_4": "falling",
+    "6_5": "falling",
+    "6_6": "falling",
+    "6_7": "falling",
+    "6_8": "falling",
+    "7_0": "falling",
+    "7_1": "falling",
+    "7_5": "falling",
+    "7_6": "falling",
+    "7_7": "falling",
+    "7_8": "falling",
+    "8_0": "falling",
+    "8_1": "falling",
+    "8_2": "falling",
+    "8_3": "falling",
+    "8_4": "falling",
+    "8_5": "falling",
+    "8_6": "falling",
+    "8_7": "falling",
+    "8_8": "falling",
+    "9_0": "falling",
+    "9_1": "falling",
+    "9_2": "falling",
+    "9_3": "falling",
+    "9_4": "falling",
+    "9_5": "falling",
+    "9_6": "falling",
+    "9_7": "falling",
+    "9_8": "falling",
+    "9_9": "exit_open"
+  };
+
+  Levels.Levels = [Levels.LevelTwo, Levels.LevelOne, Levels.LevelThree, Levels.LevelFour, Levels.LevelFive, Levels.LevelSix, Levels.LevelSeven, Levels.LevelEight, Levels.LevelNine, Levels.LevelTen, Levels.LevelEleven, Levels.LevelTwelve, Levels.LevelThirteen, Levels.LevelFourteen, Levels.LevelFifteen, Levels.LevelSixteen, Levels.LevelSeventeen, Levels.LevelEighteen, Levels.LevelNineteen, Levels.LevelTwenty];
 
   return Levels;
 
@@ -1026,7 +1832,19 @@ App = (function() {
 
   App.prototype.currentLevel = 0;
 
+  App.prototype.leftDigit = null;
+
+  App.prototype.rightDigit = null;
+
   App.prototype.gameScale = 1;
+
+  App.prototype.lights = true;
+
+  App.prototype.perfect = true;
+
+  App.prototype.menuOpen = true;
+
+  App.prototype.overOpen = false;
 
   function App() {
     this.parseLevelData = __bind(this.parseLevelData, this);
@@ -1037,9 +1855,15 @@ App = (function() {
     this.handleKeyPress = __bind(this.handleKeyPress, this);
     this.handleTouch = __bind(this.handleTouch, this);
     this.update = __bind(this.update, this);
+    this.replayClicked = __bind(this.replayClicked, this);
+    this.showGameComplete = __bind(this.showGameComplete, this);
     this.levelComplete = __bind(this.levelComplete, this);
+    this.updateDigits = __bind(this.updateDigits, this);
+    this.updateLights = __bind(this.updateLights, this);
+    this.nextClicked = __bind(this.nextClicked, this);
     this.resize = __bind(this.resize, this);
     this.init = __bind(this.init, this);
+    this.startClick = __bind(this.startClick, this);
     var images;
     images = [
       {
@@ -1082,23 +1906,64 @@ App = (function() {
         url: 'img/jump-tile.jpg',
         id: 'jump'
       }, {
-        url: 'img/player.png',
-        id: 'player'
+        url: 'img/player-down.png',
+        id: 'player-down'
+      }, {
+        url: 'img/player-up.png',
+        id: 'player-up'
+      }, {
+        url: 'img/player-left.png',
+        id: 'player-left'
+      }, {
+        url: 'img/player-right.png',
+        id: 'player-right'
+      }, {
+        url: 'img/touch-screen.jpg',
+        id: 'touch-screen'
+      }, {
+        url: 'img/keyboard-screen.jpg',
+        id: 'keyboard-screen'
       }
     ];
     this.textures = new GameTextures(images);
     this.textures.load(this.init);
-    $('#parse-button').bind('click', this.parseCurrentLevel);
+    $('#next-button').bind('click touchstart', this.nextClicked);
+    this.menu = $('#game-menu-holder');
+    this.over = $('#game-over-holder');
+    $('#game-over-holder').css('opacity', '0').remove();
   }
 
+  App.prototype.startClick = function() {
+    var _this = this;
+    TweenMax.to($('#start-screen'), 0.5, {
+      css: {
+        opacity: 0
+      },
+      ease: Power4.easeOut,
+      onComplete: function() {
+        return $('#start-screen').remove();
+      }
+    });
+    return null;
+  };
+
   App.prototype.init = function() {
+    $('#start-screen').html('');
+    if (Modernizr.touch) {
+      $('#start-screen').css('background', 'url("img/touch-screen.jpg") 0 0 no-repeat');
+    } else {
+      $('#start-screen').css('background', 'url("img/keyboard-screen.jpg") 0 0 no-repeat');
+    }
+    $('#start-screen').bind('click touchstart', this.startClick);
+    this.leftDigit = $('#digit_0');
+    this.rightDigit = $('#digit_1');
     this.levels = Levels.Levels;
+    this.updateDigits();
     this.grid = new GameGrid(this.levelComplete);
     this.grid.createGrid(this.levels[this.currentLevel]);
-    this.renderer = new GameRenderer(document.getElementById('game-holder'));
+    this.renderer = new GameRenderer(document.getElementById('canvas-holder'));
     window.onresize = this.resize;
     this.resize();
-    this.renderer.showLevel();
     if (Modernizr.touch) {
       this.renderer.renderer.view.addEventListener('touchstart', this.handleTouch, false);
     } else {
@@ -1120,28 +1985,116 @@ App = (function() {
     } else {
       this.gameScale = 1;
     }
-    $('canvas').css('width', 640 * this.gameScale + 'px');
-    $('canvas').css('height', 640 * this.gameScale + 'px');
-    $('#game-holder').css('width', 640 * this.gameScale + 'px');
-    $('#game-holder').css('height', 640 * this.gameScale + 'px');
-    this.leftMargin = (window.innerWidth - (640 * this.gameScale)) * 0.5;
-    this.topMargin = (window.innerHeight - (640 * this.gameScale)) * 0.5;
-    $('#game-holder').css('left', this.leftMargin + 'px');
-    $('#game-holder').css('top', this.topMargin + 'px');
-    $('#game-holder').css('margin-left', 0 + 'px');
-    $('#game-holder').css('margin-top', 0 + 'px');
+    $('#game-holder').css('transform', 'scale(' + this.gameScale + ', ' + this.gameScale + ')');
+    return null;
+  };
+
+  App.prototype.nextClicked = function() {
+    var _this = this;
+    $('#next-button').unbind('click touchstart', this.nextClicked);
+    TweenMax.to(this.menu, 0.5, {
+      css: {
+        opacity: 0
+      },
+      ease: Power4.easeOut,
+      onComplete: function() {
+        _this.menuOpen = false;
+        $('#game-menu-holder').remove();
+        return _this.renderer.showLevel();
+      }
+    });
+    return null;
+  };
+
+  App.prototype.updateLights = function() {
+    if (this.lights) {
+      $('#game-menu').css('background-position-y', '0');
+      console.log('bg to 0');
+    } else {
+      $('#game-menu').css('background-position-y', '-512px');
+      console.log('bg to -512');
+    }
+    return null;
+  };
+
+  App.prototype.updateDigits = function() {
+    var lvl, t, u;
+    lvl = this.currentLevel + 1;
+    t = Math.floor(lvl / 10);
+    u = lvl - (10 * t);
+    $(this.leftDigit).css('background-position-y', -(t * 160) + 'px');
+    $(this.rightDigit).css('background-position-y', -(u * 160) + 'px');
     return null;
   };
 
   App.prototype.levelComplete = function() {
     var _this = this;
     this.renderer.hideLevel(function() {
-      _this.currentLevel++;
-      if (_this.currentLevel === _this.levels.length) {
-        _this.currentLevel = 0;
+      if (_this.grid.tilesToDrop === 0) {
+        _this.lights = true;
+      } else {
+        _this.lights = false;
       }
+      if (!_this.lights) {
+        _this.perfect = false;
+      }
+      _this.currentLevel++;
+      if (_this.currentLevel === 20) {
+        _this.showGameComplete();
+        return;
+      }
+      _this.menuOpen = true;
+      _this.updateDigits();
       _this.grid.createGrid(_this.levels[_this.currentLevel]);
-      return _this.renderer.showLevel();
+      $('#game-holder').append(_this.menu);
+      _this.updateLights();
+      return TweenMax.to(_this.menu, 0.5, {
+        css: {
+          opacity: 1
+        },
+        ease: Power4.easeOut,
+        onComplete: function() {
+          return $('#next-button').bind('click touchstart', _this.nextClicked);
+        }
+      });
+    });
+    return null;
+  };
+
+  App.prototype.showGameComplete = function() {
+    var bgPos,
+      _this = this;
+    bgPos = 0;
+    if (this.perfect) {
+      bgPos = -512;
+    }
+    $('#game-holder').append(this.over);
+    $('#game-over').css('background-position-y', bgPos + 'px');
+    TweenMax.to(this.over, 0.5, {
+      css: {
+        opacity: 1
+      },
+      ease: Power4.easeOut,
+      onComplete: function() {
+        return $('#replay-button').bind('click touchstart', _this.replayClicked);
+      }
+    });
+    return null;
+  };
+
+  App.prototype.replayClicked = function() {
+    var _this = this;
+    $('#replay-button').unbind('click touchstart', this.replayClicked);
+    TweenMax.to(this.over, 0.5, {
+      css: {
+        opacity: 0
+      },
+      ease: Power4.easeOut,
+      onComplete: function() {
+        _this.overOpen = false;
+        $('#game-over-holder').remove();
+        return _this.reset();
+      }
     });
     return null;
   };
@@ -1165,6 +2118,10 @@ App = (function() {
   App.prototype.handleTouch = function(e) {
     var xFromCenter, xneg, yFromCenter, yneg;
     e.preventDefault();
+    if (e.touches.length > 2) {
+      this.reset();
+      return;
+    }
     xFromCenter = (320 * this.gameScale) - (e.touches[0].pageX - this.leftMargin);
     xneg = false;
     yneg = false;
@@ -1193,6 +2150,9 @@ App = (function() {
 
   App.prototype.handleKeyPress = function(e) {
     var unicode;
+    if (this.menuOpen || this.overOpen) {
+      return;
+    }
     unicode = e.keyCode ? e.keyCode : e.charCode;
     if (unicode === 37 || unicode === 65) {
       this.leftPressed = true;
@@ -1212,6 +2172,9 @@ App = (function() {
   App.prototype.handleKeyRelease = function(e) {
     var unicode;
     unicode = e.keyCode ? e.keyCode : e.charCode;
+    if (this.menuOpen || this.overOpen && unicode === 32) {
+      this.nextClicked();
+    }
     if (unicode === 37 || unicode === 65) {
       this.leftPressed = false;
     }
@@ -1224,18 +2187,18 @@ App = (function() {
     if (unicode === 40 || unicode === 83) {
       this.downPressed = false;
     }
-    if (unicode === 69) {
-      this.toggleEditMode();
-    }
-    if (unicode >= 48 && unicode <= 57) {
-      this.renderer.editState = this.editStates[unicode - 48];
-    }
-    if (unicode === 80) {
-      this.renderer.editState = 'pickup';
-    }
     if (unicode === 82) {
       this.reset();
     }
+    /*
+    		if unicode is 69
+    			@toggleEditMode()
+    		if unicode >= 48 and unicode <= 57
+    			@renderer.editState = @editStates[unicode-48]
+    		if unicode == 80
+    			@renderer.editState = 'pickup'
+    */
+
     return null;
   };
 
@@ -1255,9 +2218,27 @@ App = (function() {
 
   App.prototype.reset = function() {
     var _this = this;
+    if (this.menuOpen || this.overOpen) {
+      return;
+    }
     this.renderer.hideLevel(function() {
+      _this.menuOpen = true;
+      _this.perfect = true;
+      _this.lights = true;
+      _this.currentLevel = 0;
+      _this.updateDigits();
+      _this.updateLights();
       _this.grid.createGrid(_this.levels[_this.currentLevel]);
-      return _this.renderer.showLevel();
+      $('#game-holder').append(_this.menu);
+      return TweenMax.to(_this.menu, 0.5, {
+        css: {
+          opacity: 1
+        },
+        ease: Power4.easeOut,
+        onComplete: function() {
+          return $('#next-button').bind('click touchstart', _this.nextClicked);
+        }
+      });
     });
     return null;
   };

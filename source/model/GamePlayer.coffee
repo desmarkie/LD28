@@ -11,6 +11,7 @@ class GamePlayer
 
 	move: (xmov, ymov) =>
 		@lastMove = {x:xmov, y:ymov}
+		console.log 'MOVING '+@lastMove
 		@isMoving = true
 		newx = @x + xmov
 		newy = @y + ymov

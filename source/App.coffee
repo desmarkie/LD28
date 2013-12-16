@@ -20,7 +20,17 @@ class App
 	levels: null
 	currentLevel: 0
 
+	leftDigit: null
+	rightDigit: null
+
 	gameScale: 1
+
+	lights: true
+
+	perfect: true
+
+	menuOpen: true
+	overOpen: false
 
 	constructor: ->
 		images = [
@@ -37,30 +47,52 @@ class App
 			{url:'img/corner-tile.jpg', id:'corner'},
 			{url:'img/plain-tile.png', id:'normal'},
 			{url:'img/jump-tile.jpg', id:'jump'},
-			{url:'img/player.png', id:'player'}
+			{url:'img/player-down.png', id:'player-down'},
+			{url:'img/player-up.png', id:'player-up'},
+			{url:'img/player-left.png', id:'player-left'},
+			{url:'img/player-right.png', id:'player-right'},
+			{url:'img/touch-screen.jpg', id:'touch-screen'},
+			{url:'img/keyboard-screen.jpg', id:'keyboard-screen'}
 		]
 		@textures = new GameTextures(images)
 		@textures.load @init
 
-		$('#parse-button').bind 'click', @parseCurrentLevel
+		$('#next-button').bind 'click touchstart', @nextClicked
+
+		@menu = $('#game-menu-holder')
+		@over = $('#game-over-holder')
+		$('#game-over-holder').css('opacity', '0').remove()
+
+	startClick: =>
+		TweenMax.to $('#start-screen'), 0.5, {css:{opacity:0}, ease:Power4.easeOut, onComplete:=>
+			$('#start-screen').remove()
+		}
+		null
 
 	init: =>
+
+		$('#start-screen').html ''
+		if Modernizr.touch
+			$('#start-screen').css 'background', 'url("img/touch-screen.jpg") 0 0 no-repeat'
+		else
+			$('#start-screen').css 'background', 'url("img/keyboard-screen.jpg") 0 0 no-repeat'
+		$('#start-screen').bind 'click touchstart', @startClick
+
+		@leftDigit = $('#digit_0')
+		@rightDigit = $('#digit_1')
+
 		@levels = Levels.Levels
 		# @currentLevel = @levels.length-1
+
+		@updateDigits()
 
 		@grid = new GameGrid @levelComplete
 		@grid.createGrid @levels[@currentLevel]
 
-		@renderer = new GameRenderer document.getElementById('game-holder')
+		@renderer = new GameRenderer document.getElementById('canvas-holder')
 
 		window.onresize = @resize
 		@resize()
-
-		@renderer.showLevel()
-
-		# @debug = document.createElement 'div'
-		# @debug.id = 'debug'
-		# document.body.appendChild @debug
 
 		if Modernizr.touch
 			@renderer.renderer.view.addEventListener 'touchstart', @handleTouch, false
@@ -80,25 +112,74 @@ class App
 		else
 			@gameScale = 1
 
-		$('canvas').css 'width', 640*@gameScale+'px'
-		$('canvas').css 'height', 640*@gameScale+'px'
-		$('#game-holder').css 'width', 640*@gameScale+'px'
-		$('#game-holder').css 'height', 640*@gameScale+'px'
-		@leftMargin = ((window.innerWidth - (640*@gameScale))*0.5)
-		@topMargin = ((window.innerHeight - (640*@gameScale))*0.5)
-		$('#game-holder').css 'left', @leftMargin+'px'
-		$('#game-holder').css 'top', @topMargin+'px'
-		$('#game-holder').css 'margin-left', 0+'px'
-		$('#game-holder').css 'margin-top', 0+'px'
+		$('#game-holder').css 'transform', 'scale('+@gameScale+', '+@gameScale+')'
 
+		null
+
+
+	nextClicked: =>
+		$('#next-button').unbind 'click touchstart', @nextClicked
+		TweenMax.to @menu, 0.5, {css:{opacity:0}, ease:Power4.easeOut, onComplete:=>
+			@menuOpen = false
+			$('#game-menu-holder').remove()
+			@renderer.showLevel()
+		}
+		null
+
+	updateLights: =>
+		if @lights
+			$('#game-menu').css 'background-position-y', '0'
+			console.log 'bg to 0'
+		else
+			$('#game-menu').css 'background-position-y', '-512px'
+			console.log 'bg to -512'
+		null
+
+	updateDigits: =>
+		lvl = @currentLevel + 1
+		t = Math.floor(lvl/10)
+		u = lvl - (10 * t)
+		$(@leftDigit).css 'background-position-y', -(t*160)+'px'
+		$(@rightDigit).css 'background-position-y', -(u*160)+'px'
 		null
 
 	levelComplete: =>
 		@renderer.hideLevel =>
+			
+			if @grid.tilesToDrop == 0 then @lights = true else @lights = false
+			if !@lights then @perfect = false
 			@currentLevel++
-			if @currentLevel == @levels.length then @currentLevel = 0
+			# if @currentLevel == @levels.length then @currentLevel = 0
+			if @currentLevel == 20
+				@showGameComplete()
+				return
+			@menuOpen = true
+			@updateDigits()
 			@grid.createGrid @levels[@currentLevel]
-			@renderer.showLevel()
+			$('#game-holder').append @menu
+			@updateLights()
+			TweenMax.to @menu, 0.5, {css:{opacity:1}, ease:Power4.easeOut, onComplete:=>
+				$('#next-button').bind 'click touchstart', @nextClicked
+			}
+		null
+
+	showGameComplete: =>
+		bgPos = 0
+		if @perfect then bgPos = -512
+		$('#game-holder').append @over
+		$('#game-over').css 'background-position-y', bgPos+'px'
+		TweenMax.to @over, 0.5, {css:{opacity:1}, ease:Power4.easeOut, onComplete:=>
+			$('#replay-button').bind 'click touchstart', @replayClicked
+		}
+		null
+
+	replayClicked: =>
+		$('#replay-button').unbind 'click touchstart', @replayClicked
+		TweenMax.to @over, 0.5, {css:{opacity:0}, ease:Power4.easeOut, onComplete:=>
+			@overOpen = false
+			$('#game-over-holder').remove()
+			@reset()
+		}
 		null
 
 	update: =>
@@ -119,7 +200,10 @@ class App
 
 	handleTouch: (e) =>
 		e.preventDefault()
-		# @debug.innerHTML = 'TTTOOOUUUUCCCHHH!!!'
+		if e.touches.length > 2
+			@reset()
+			return
+
 		xFromCenter = (320*@gameScale) - (e.touches[0].pageX-@leftMargin)
 		xneg = false
 		yneg = false
@@ -130,7 +214,6 @@ class App
 		if yFromCenter < 0
 			yFromCenter *= -1
 			yneg = true
-		# @debug.innerHTML = (e.touches[0].pageX-@leftMargin)+'_'+(e.touches[0].pageY-@topMargin)
 		if yFromCenter > xFromCenter
 			if yneg then @downPressed = true else @upPressed = true
 		else if xneg then @rightPressed = true
@@ -139,6 +222,7 @@ class App
 		null
 
 	handleKeyPress: (e) =>
+		if @menuOpen or @overOpen then return
 		unicode = if e.keyCode then e.keyCode else e.charCode
 		if unicode is 37 or unicode is 65
 			@leftPressed = true
@@ -152,6 +236,8 @@ class App
 
 	handleKeyRelease: (e) =>
 		unicode = if e.keyCode then e.keyCode else e.charCode
+		if @menuOpen or @overOpen and unicode is 32
+			@nextClicked()
 		if unicode is 37 or unicode is 65
 			@leftPressed = false
 		if unicode is 39 or unicode is 68
@@ -160,14 +246,17 @@ class App
 			@upPressed = false
 		if unicode is 40 or unicode is 83
 			@downPressed = false
+		if unicode == 82
+			@reset()
+		###
 		if unicode is 69
 			@toggleEditMode()
 		if unicode >= 48 and unicode <= 57
 			@renderer.editState = @editStates[unicode-48]
 		if unicode == 80
 			@renderer.editState = 'pickup'
-		if unicode == 82
-			@reset()
+		###
+		
 		null
 
 	toggleEditMode: =>
@@ -182,9 +271,19 @@ class App
 		null
 
 	reset: =>
+		if @menuOpen or @overOpen then return
 		@renderer.hideLevel =>
+			@menuOpen = true
+			@perfect = true
+			@lights = true
+			@currentLevel = 0
+			@updateDigits()
+			@updateLights()
 			@grid.createGrid @levels[@currentLevel]
-			@renderer.showLevel()
+			$('#game-holder').append @menu
+			TweenMax.to @menu, 0.5, {css:{opacity:1}, ease:Power4.easeOut, onComplete:=>
+				$('#next-button').bind 'click touchstart', @nextClicked
+			}
 		null
 
 	parseLevelData: (data) =>

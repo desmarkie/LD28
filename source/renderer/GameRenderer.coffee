@@ -59,7 +59,13 @@ class GameRenderer
 		@pickupHolder.position.y = -320
 		@levelHolder.addChild @pickupHolder
 
-		@playerSprite = new PIXI.Sprite @texManager.getTexture('player')
+		@playerSprite = new PIXI.MovieClip [
+			@texManager.getTexture('player-up'),
+			@texManager.getTexture('player-down'),
+			@texManager.getTexture('player-left'),
+			@texManager.getTexture('player-right')
+		]
+		@playerSprite.gotoAndStop 0
 		@playerSprite.pivot.x = @playerSprite.pivot.y = 32
 		@levelHolder.addChild @playerSprite
 
@@ -86,6 +92,14 @@ class GameRenderer
 			}
 		else
 			@playerSprite.scale.x = @playerSprite.scale.y = @grid.player.scale
+
+		if @grid.player.isMoving
+			dir = @grid.player.lastMove
+			console.log 'moving '+dir
+			if dir.y < 0 then @playerSprite.gotoAndStop 0
+			else if dir.y > 0 then @playerSprite.gotoAndStop 1
+			else if dir.x < 0 then @playerSprite.gotoAndStop 2
+			else if dir.x > 0 then @playerSprite.gotoAndStop 3
 
 		@bg.position.x++
 		@bg.position.y++

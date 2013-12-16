@@ -19,6 +19,60 @@ canvas{
 	left: 50%;
 	margin-top: -320px;
 	margin-left: -320px;
+	overflow: hidden;
+}
+#game-menu-holder, #game-over-holder{
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 640px;
+	height: 640px;
+	z-index: 200;
+	background: rgba(0, 0, 0, 0.25);
+}
+#game-menu, #game-over{
+	position: absolute;
+	top: 64px;
+	left: 64px;
+	width: 512px;
+	height: 512px;
+	background: url('../img/menu-bg.jpg') 0 0 no-repeat;
+}
+#game-over{
+	background: url('../img/ending-bg.jpg') 0 0 no-repeat;
+}
+#start-screen{
+	width: 100%;
+	height: 100%;
+	position: absolute;
+	top: 0;
+	left: 0;
+	background: black;
+	color: white;
+	z-index: 1000;
+}
+.menuButton{
+	position: absolute;
+	bottom: 64px;
+	left: 64px;
+	width: 384px;
+	height: 96px;
+	cursor: pointer;
+}
+#lcd{
+	width: 192px;
+	height: 160px;
+	background: url('../img/lcd-bg.png');
+	padding: 4px 3.5px;
+	position: absolute;
+	top: 160px;
+	left: 160px;
+}
+.digit{
+	width: 96px;
+	height: 160px;
+	background: url('../img/digits.png') 0 0 no-repeat;
+	float: left;
 }
 #edit-controls{
 	position: absolute;

@@ -9,6 +9,8 @@ class GameGrid
 
 	pickups: null
 
+	tilesToDrop: 0
+
 	exits: false
 
 	complete: false
@@ -33,6 +35,7 @@ class GameGrid
 		@currentLevel = level
 		@tiles = []
 		@pickups = []
+		@tilesToDrop = 0
 
 		for i in [0..@gridWidth-1] by 1
 			@tiles[i] = []
@@ -40,6 +43,7 @@ class GameGrid
 				@tiles[i][j] = new GameTile(i, j)
 				if @currentLevel[i+'_'+j]
 					@tiles[i][j].state = @currentLevel[i+'_'+j]
+					if @tiles[i][j].state == 'falling' then @tilesToDrop++
 					if @tiles[i][j].state == 'exit_open' or @tiles[i][j].state == 'exit_closed'
 						@tiles[i][j].state = 'exit_closed'
 						@exitPos.x = i
@@ -67,6 +71,7 @@ class GameGrid
 	checkDropTile: (x, y) =>
 		if @tiles[x][y].state == 'falling'
 			@tiles[x][y].falling = true
+			@tilesToDrop--
 		null
 
 	checkFloor: (x, y) =>

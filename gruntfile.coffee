@@ -62,9 +62,6 @@ module.exports = (grunt) ->
 				banner: "<%= banners.credits %>"
 				mangle: true
 				compress:{
-					global_defs: {
-						"DEBUG": false
-					},
 					sequences: true
 					properties: false
 					dead_code: true
